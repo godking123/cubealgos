@@ -15,7 +15,8 @@ KOCIEMBA = $(ROOT)/Solvers/KociembaNaive/Coords.cc \
            $(ROOT)/Solvers/KociembaNaive/Kociemba.cc
 SCRAMBLERS = $(ROOT)/Scramblers/WCA.cc
 
-SRCS = cfop-test.cc PieceSearch.cc Cross/Cross.cc F2L/F2L.cc $(CORE) $(KOCIEMBA) $(SCRAMBLERS)
+SRCS = cfop-test.cc PieceSearch.cc Cross/Cross.cc F2L/F2L.cc OLL/OLL.cc PLL/PLL.cc \
+       $(CORE) $(KOCIEMBA) $(SCRAMBLERS)
 OBJS = $(addprefix $(BUILD)/,$(notdir $(SRCS:.cc=.o)))
 
 .PHONY: all
@@ -31,6 +32,12 @@ $(BUILD)/%.o: Cross/%.cc | $(BUILD)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(BUILD)/%.o: F2L/%.cc | $(BUILD)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD)/%.o: OLL/%.cc | $(BUILD)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD)/%.o: PLL/%.cc | $(BUILD)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(BUILD)/%.o: $(ROOT)/CubeState/%.cc | $(BUILD)
