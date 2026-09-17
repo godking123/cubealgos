@@ -105,8 +105,17 @@ int main() {
         std::cout << YELLOW << "Solving with " << METHODS[method].name
                   << "..." << RESET << "\n";
 
+        // Methods With Stages Solve Once and Print Both Views
+        std::vector<Stage> stages;
+        std::vector<Move> solution;
         auto start = std::chrono::high_resolution_clock::now();
-        auto solution = METHODS[method].solve(state);
+        if (METHODS[method].stages) {
+            stages = METHODS[method].stages(state);
+            for (const Stage& stage : stages)
+                solution.insert(solution.end(), stage.moves.begin(), stage.moves.end());
+        } else {
+            solution = METHODS[method].solve(state);
+        }
         auto end   = std::chrono::high_resolution_clock::now();
 
         double ms = std::chrono::duration<double, std::milli>(end - start).count();
@@ -125,6 +134,10 @@ int main() {
         std::cout << BOLD << GREEN
                   << "Solution: " << RESET
                   << sequenceName(solution) << "\n";
+        for (const Stage& stage : stages)
+            std::cout << "  " << BOLD << stage.name << ":" << RESET
+                      << std::string(7 - stage.name.size(), ' ')
+                      << sequenceName(stage.moves) << "  (" << stage.moves.size() << ")\n";
 
         std::cout << BOLD << "Moves:    " << RESET << solution.size() << "\n";
         std::cout << BOLD << "Time:     " << RESET << ms << " ms\n";

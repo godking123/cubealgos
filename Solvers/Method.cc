@@ -5,11 +5,11 @@
 
 const Method METHODS[3] = {
     {"Kociemba", "two-phase IDA* search, 18-22 moves", true,
-     Kociemba::buildTables, Kociemba::solve},
-    {"CFOP",     "cross, F2L, OLL, PLL",               false,
-     CFOP::buildTables,     CFOP::solve},
+     Kociemba::buildTables, Kociemba::solve, nullptr},
+    {"CFOP",     "cross, F2L, OLL, PLL",               true,
+     CFOP::buildTables,     CFOP::solve,     CFOP::stages},
     {"Roux",     "blocks, CMLL, LSE",                  false,
-     Roux::buildTables,     Roux::solve},
+     Roux::buildTables,     Roux::solve,     nullptr},
 };
 
 const int METHOD_COUNT = 3;

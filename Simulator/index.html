@@ -6,76 +6,131 @@
 <title>CubeAlgos Simulator</title>
 <style>
   :root {
-    --bg: #0e1013; --panel: #161a20; --panel2: #1c2129; --line: #262c36; --text: #e7eaf0;
-    --muted: #8b93a3; --accent: #6ea8fe; --good: #3ddc84; --bad: #ff6b6b; --warn: #ffd166;
-    --white: #ffffff; --red: #e0342c; --green: #2fa84f; --yellow: #f5d321; --orange: #ff8a1f; --blue: #1f6feb;
-    --plastic: #c4c8d0;
+    --bg: #eef0f3; --panel: #ffffff; --panel2: #f6f7f9; --line: #cfd4db; --line2: #e3e6ea;
+    --text: #1f2328; --muted: #656d76; --accent: #1f5fbf; --accent-bg: #e8f0fb; --good: #1a7f37; --good-bg: #e6f4ea;
+    --bad: #b42318; --bad-bg: #fbeae9;
+    --white: #ffffff; --red: #c8102e; --green: #009b48; --yellow: #ffd500; --orange: #ff5800; --blue: #0046ad;
+    --plastic: #1c1e22;
+    --turn: 180ms;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 -apple-system, "Segoe UI", Inter, Roboto, sans-serif; }
-  header { display: flex; align-items: center; gap: 14px; padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 5; }
-  header h1 { font-size: 16px; margin: 0; font-weight: 600; letter-spacing: .2px; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.45 system-ui, "Segoe UI", Helvetica, Arial, sans-serif; }
+  button, select, input { font: inherit; color: inherit; }
+
+  /* Toolbar */
+  header { display: flex; align-items: center; gap: 12px; height: 46px; padding: 0 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 14px; font-weight: 600; margin: 0 12px 0 0; }
+  header .sep { width: 1px; height: 22px; background: var(--line); }
+  header label { display: flex; align-items: center; gap: 6px; color: var(--muted); }
   header .spacer { flex: 1; }
-  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel2); font-size: 12px; color: var(--muted); }
-  .chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
-  .chip.on { color: var(--text); border-color: #2f5f3f; }
-  .chip.on .dot { background: var(--good); box-shadow: 0 0 8px var(--good); }
-  main { display: grid; grid-template-columns: minmax(420px, 1fr) 440px; gap: 0; height: calc(100vh - 53px); }
-  @media (max-width: 960px) { main { grid-template-columns: 1fr; height: auto; } #viewport { min-height: 480px; } }
-  #viewport { position: relative; display: grid; place-items: center; padding-bottom: 160px; overflow: hidden; cursor: grab; user-select: none; background: radial-gradient(ellipse at 50% 40%, #171b22 0%, var(--bg) 70%); }
+
+  main { display: grid; grid-template-columns: minmax(420px, 1fr) 420px; height: calc(100% - 46px); }
+  @media (max-width: 960px) { main { grid-template-columns: 1fr; height: auto; } #viewport { min-height: 460px; } }
+
+  /* Viewport */
+  #viewport { position: relative; display: grid; place-items: center; overflow: hidden; cursor: grab; user-select: none;
+    background: radial-gradient(ellipse at 50% 40%, #f7f8fa 0%, #e6e9ed 55%, #d8dce2 100%); }
   #viewport:active { cursor: grabbing; }
-  #hint { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); color: var(--muted); font-size: 12px; pointer-events: none; white-space: nowrap; }
-  #holdTag { position: absolute; top: 14px; left: 16px; font-size: 12px; color: var(--muted); }
+  #holdTag { position: absolute; top: 10px; left: 12px; color: var(--muted); }
   #holdTag b { color: var(--text); font-weight: 600; }
-  .scene { width: 300px; height: 300px; perspective: 1400px; }
+  #hint { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); color: var(--muted); font-size: 12px; white-space: nowrap; pointer-events: none; }
+  #viewBtns { position: absolute; top: 10px; right: 12px; display: flex; gap: 4px; }
+
+  /* Stepper under the cube */
+  #stepper { position: absolute; bottom: 36px; left: 50%; transform: translateX(-50%); display: flex; border: 1px solid var(--line); background: var(--panel); border-radius: 3px; overflow: hidden; }
+  #stepper[hidden] { display: none; }
+  #stepper .st { padding: 6px 14px; color: var(--muted); border-right: 1px solid var(--line2); border-bottom: 2px solid transparent; display: flex; gap: 6px; align-items: center; }
+  #stepper .st:last-child { border-right: 0; }
+  #stepper .st .n { font-weight: 600; font-size: 11px; width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--line); display: grid; place-items: center; }
+  #stepper .st.on { color: var(--good); }
+  #stepper .st.on .n { background: var(--good); border-color: var(--good); color: #fff; }
+  #stepper .st.cur { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+  #stepper .st.cur .n { border-color: var(--accent); color: var(--accent); }
+
+  /* Cube: black plastic body, glossy stickers, key light from the top front right */
+  .scene { width: 300px; height: 300px; perspective: 1400px; position: relative; margin-bottom: 70px; }
+  .scene::after { content: ""; position: absolute; left: 50%; top: 82%; width: 300px; height: 70px; transform: translate(-50%, 0);
+    background: radial-gradient(ellipse at center, rgba(20,24,30,.45) 0%, rgba(20,24,30,.18) 40%, rgba(20,24,30,0) 70%); filter: blur(6px); pointer-events: none; }
   .cube { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; }
-  .cubie { position: absolute; width: 60px; height: 60px; left: 120px; top: 120px; transform-style: preserve-3d; transition: transform .18s cubic-bezier(.4,0,.2,1), opacity .2s; }
+  .cubie { position: absolute; width: 60px; height: 60px; left: 120px; top: 120px; transform-style: preserve-3d; transition: transform var(--turn) cubic-bezier(.4,0,.2,1), opacity .2s; }
   .cubie.instant { transition: none; }
-  .cubie.dim { opacity: .14; }
-  .cubie.picked .face { outline: 2px solid var(--accent); outline-offset: -2px; }
-  .face { position: absolute; inset: 0; background: var(--plastic); border-radius: 6px; border: 3px solid var(--plastic); backface-visibility: hidden; }
-  .face.sticker { box-shadow: inset 0 0 0 1px rgba(0,0,0,.22); }
+  .cubie.dim { opacity: .35; }
+  .cubie.picked .face.sticker { outline: 2px solid var(--accent); outline-offset: -3px; }
+  .face { position: absolute; inset: 0; background: var(--plastic); border-radius: 3px; border: 3px solid var(--plastic); backface-visibility: hidden; overflow: hidden; }
+  .face.sticker { --c: var(--plastic); background-color: var(--c); border-radius: 4px;
+    background-image: linear-gradient(145deg, rgba(255,255,255,.5) 0%, rgba(255,255,255,.16) 30%, rgba(255,255,255,0) 48%, rgba(0,0,0,.08) 70%, rgba(0,0,0,.28) 100%);
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.22); }
+  .face.sticker::before { content: ""; position: absolute; left: 8%; top: 6%; width: 55%; height: 22%; border-radius: 50%;
+    background: radial-gradient(ellipse at center, rgba(255,255,255,.5), rgba(255,255,255,0) 70%); transform: rotate(-12deg); pointer-events: none; }
+  .face::after { content: ""; position: absolute; inset: -3px; pointer-events: none; }
+  .face.u::after { background: rgba(255,255,255,.05); }
+  .face.f::after { background: rgba(0,0,0,.04); }
+  .face.r::after { background: rgba(0,0,0,.12); }
+  .face.l::after { background: rgba(0,0,0,.22); }
+  .face.b::after { background: rgba(0,0,0,.28); }
+  .face.d::after { background: rgba(0,0,0,.36); }
   .face.f { transform: translateZ(30px); } .face.b { transform: rotateY(180deg) translateZ(30px); }
   .face.r { transform: rotateY(90deg) translateZ(30px); } .face.l { transform: rotateY(-90deg) translateZ(30px); }
   .face.u { transform: rotateX(90deg) translateZ(30px); } .face.d { transform: rotateX(-90deg) translateZ(30px); }
-  #panel { border-left: 1px solid var(--line); background: var(--panel); overflow-y: auto; height: 100%; padding: 16px 18px 40px; display: flex; flex-direction: column; gap: 18px; }
-  section h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
+
+  /* Side panel */
+  #panel { background: var(--panel); border-left: 1px solid var(--line); overflow-y: auto; height: 100%; }
+  section { padding: 12px 16px; border-bottom: 1px solid var(--line2); }
+  section h2 { font-size: 13px; font-weight: 600; margin: 0 0 8px; }
+  section h2 small { color: var(--muted); font-weight: 400; margin-left: 6px; }
   .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-  button { background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font: inherit; cursor: pointer; transition: background .12s, border-color .12s; }
-  button:hover { background: #232a34; border-color: #3a4351; }
-  button:active { transform: translateY(1px); }
-  button.primary { background: var(--accent); color: #0b1220; border-color: var(--accent); font-weight: 600; }
-  button.primary:hover { background: #86b6ff; }
+  .row + .row { margin-top: 6px; }
+  button { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 3px; padding: 5px 10px; cursor: pointer; line-height: 1.3; }
+  button:hover { background: var(--panel2); border-color: #b8bec7; }
+  button:active { background: #eceef1; }
+  button:disabled { opacity: .5; cursor: default; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button.primary:hover { background: #1a52a6; }
+  button.small { padding: 3px 7px; font-size: 12px; }
   button.mv { min-width: 44px; font-weight: 600; font-family: ui-monospace, Menlo, Consolas, monospace; }
-  button.rot { min-width: 0; padding: 6px 4px; font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--warn); }
-  button.toggle.on { background: #24344d; border-color: var(--accent); color: var(--accent); }
-  button.pair.on { background: #1f3a2c; border-color: var(--good); color: var(--good); }
-  input[type=text] { flex: 1; min-width: 120px; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; font: 13px ui-monospace, Menlo, Consolas, monospace; }
-  input[type=text]:focus { outline: none; border-color: var(--accent); }
-  .grid18 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
-  .plan { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; min-height: 26px; }
-  .plan .lbl { width: 100%; font-size: 11px; color: var(--muted); margin-top: 4px; }
-  .tok { padding: 3px 8px; border-radius: 6px; background: var(--panel2); border: 1px solid var(--line); font: 600 12px ui-monospace, Menlo, Consolas, monospace; }
-  .tok.done { opacity: .35; } .tok.next { border-color: var(--accent); color: var(--accent); }
-  .tok.rot { color: var(--warn); }
-  .msg { font-size: 12px; color: var(--muted); margin-top: 6px; min-height: 16px; }
+  button.rot { min-width: 0; padding: 5px 4px; font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--muted); }
+  button.pair.on { background: var(--good-bg); border-color: var(--good); color: var(--good); font-weight: 600; }
+  select { background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 4px 6px; }
+  input[type=text] { flex: 1; min-width: 120px; background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 5px 8px; font: 13px ui-monospace, Menlo, Consolas, monospace; }
+  input[type=text]:focus, select:focus { outline: none; border-color: var(--accent); }
+  input[type=checkbox] { margin: 0 6px 0 0; vertical-align: -2px; }
+  .opt { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 6px 12px; }
+  .opt label { color: var(--text); }
+  .grid18 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+
+  .stage { border: 1px solid var(--line); border-radius: 3px; background: var(--panel2); padding: 10px 12px; }
+  .stage h3 { margin: 0 0 2px; font-size: 13px; font-weight: 600; }
+  .stage h3 span { color: var(--muted); font-weight: 400; margin-left: 6px; }
+  .stage p { margin: 0 0 8px; color: var(--muted); }
+  .plan { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; min-height: 24px; }
+  .plan .lbl { width: 100%; color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .tok { padding: 2px 7px; border-radius: 2px; background: var(--panel2); border: 1px solid var(--line2); font: 600 12px ui-monospace, Menlo, Consolas, monospace; }
+  .tok.done { opacity: .35; } .tok.next { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+  .tok.rot { color: #8a5a00; }
+  .msg { color: var(--muted); font-size: 12px; margin-top: 6px; min-height: 16px; }
   .msg.err { color: var(--bad); }
-  table.state { border-collapse: separate; border-spacing: 3px; width: 100%; }
-  table.state th { text-align: left; font-size: 11px; color: var(--muted); font-weight: 600; width: 28px; font-family: ui-monospace, monospace; }
+  .msg.ok { color: var(--good); }
+  table.state { border-collapse: separate; border-spacing: 2px; width: 100%; }
+  table.state th { text-align: left; font-size: 11px; color: var(--muted); font-weight: 600; width: 26px; font-family: ui-monospace, monospace; }
   table.state td { padding: 0; }
-  table.state input { width: 100%; text-align: center; background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 5px; padding: 4px 0; font: 12px ui-monospace, Menlo, Consolas, monospace; }
-  table.state input.home { color: var(--good); border-color: #234a33; }
-  table.state input.hover { border-color: var(--accent); background: #24344d; }
-  table.state .slots td { text-align: center; font-size: 10px; color: var(--muted); font-family: ui-monospace, monospace; padding-bottom: 1px; }
-  kbd { font: 11px ui-monospace, monospace; background: var(--panel2); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; color: var(--muted); }
+  table.state input { width: 100%; text-align: center; background: var(--panel); border: 1px solid var(--line); border-radius: 2px; padding: 3px 0; font: 12px ui-monospace, Menlo, Consolas, monospace; }
+  table.state input.home { color: var(--good); border-color: #9ccfae; background: var(--good-bg); }
+  table.state input.hover { border-color: var(--accent); background: var(--accent-bg); }
+  table.state .slots td { text-align: center; font-size: 10px; color: var(--muted); font-family: ui-monospace, monospace; }
+  kbd { font: 11px ui-monospace, monospace; background: var(--panel); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; color: var(--muted); }
 </style>
 </head>
 <body>
 <header>
   <h1>CubeAlgos Simulator</h1>
-  <span class="chip" id="chipSolved"><span class="dot"></span>Solved</span>
-  <span class="chip" id="chipCross"><span class="dot"></span>Cross</span>
-  <span class="chip" id="chipF2L"><span class="dot"></span>F2L <span id="pairCount">0/4</span></span>
+  <span class="sep"></span>
+  <label>Method
+    <select id="method">
+      <option value="cfop">CFOP — cross, F2L, OLL, PLL</option>
+      <option value="kociemba">Kociemba — shortest, two phase</option>
+    </select>
+  </label>
   <span class="spacer"></span>
   <button id="btnScramble" class="primary">Scramble</button>
   <button id="btnUndo" title="Backspace">Undo</button>
@@ -84,51 +139,29 @@
 <main>
   <div id="viewport">
     <div id="holdTag">Hold: <b id="holdText">identity</b> <span id="holdFaces"></span></div>
+    <div id="viewBtns"><button class="small" id="btnView">Reset view</button></div>
     <div class="scene"><div class="cube" id="cube"></div></div>
-    <div id="hint">drag to orbit · <kbd>u r f d l b</kbd> turn, <kbd>shift</kbd> prime · <kbd>x y z</kbd> rotate · click a cubie</div>
+    <div id="stepper">
+      <span class="st" data-stage="cross"><span class="n">1</span>Cross</span>
+      <span class="st" data-stage="f2l"><span class="n">2</span>F2L <span id="pairCount">0/4</span></span>
+      <span class="st" data-stage="oll"><span class="n">3</span>OLL</span>
+      <span class="st" data-stage="pll"><span class="n">4</span>PLL</span>
+    </div>
+    <div id="hint">drag to orbit · <kbd>U R F D L B</kbd> turn, <kbd>shift</kbd> prime · <kbd>x y z</kbd> rotate · <kbd>space</kbd> step · <kbd>⌫</kbd> undo</div>
   </div>
   <aside id="panel">
     <section>
-      <h2>Moves</h2>
-      <div class="grid18" id="moveGrid"></div>
-      <div class="grid18" style="grid-template-columns: repeat(9, 1fr); margin-top:8px" id="rotRow"></div>
-      <div class="row" style="margin-top:8px">
-        <input type="text" id="seqInput" placeholder="R U R' U'  x  y2 …" spellcheck="false">
-        <button id="btnSeq">Apply</button>
-      </div>
-      <div class="msg" id="seqMsg"></div>
-    </section>
-
-    <section>
-      <h2>Highlight</h2>
-      <div class="row">
-        <button class="toggle" data-hl="cross">Cross</button>
-        <button class="toggle" data-hl="p0">DFR pair</button>
-        <button class="toggle" data-hl="p1">DLF pair</button>
-        <button class="toggle" data-hl="p2">DBL pair</button>
-        <button class="toggle" data-hl="p3">DRB pair</button>
-        <button class="toggle" data-hl="f2l">All F2L</button>
-        <button id="btnHlClear">Clear</button>
-      </div>
-      <div class="msg" id="pickMsg">Click a cubie on the cube to see which piece it is.</div>
-    </section>
-
-    <section>
       <h2>Solve</h2>
       <div class="row">
-        <button id="btnBestCross">Best cross</button>
-        <button id="btnCross">Cross here</button>
-        <button id="btnKociemba">Kociemba</button>
+        <button id="btnPlaySolution" class="primary">Play solution</button>
+        <button id="btnPlanSolution">Show solution</button>
       </div>
-      <div class="row" style="margin-top:8px">
-        <span style="color:var(--muted);font-size:12px">Pair</span>
-        <button class="pair on" data-slot="0">DFR</button>
-        <button class="pair" data-slot="1">DLF</button>
-        <button class="pair" data-slot="2">DBL</button>
-        <button class="pair" data-slot="3">DRB</button>
-        <button id="btnPair">Insert pair</button>
-        <button id="btnF2L">Greedy F2L</button>
-      </div>
+      <div class="msg" id="solveMsg"></div>
+    </section>
+
+    <section>
+      <h2 id="stageTitle">Current step</h2>
+      <div class="stage" id="stage"></div>
       <div class="plan" id="plan"></div>
       <div class="row" style="margin-top:8px">
         <button id="btnStep" class="primary">Step</button>
@@ -136,11 +169,48 @@
         <button id="btnAll">Apply all</button>
         <button id="btnClear">Clear</button>
       </div>
-      <div class="msg" id="solveMsg"></div>
+      <div class="msg" id="planMsg"></div>
     </section>
 
     <section>
-      <h2>State <span style="text-transform:none;letter-spacing:0;color:var(--muted);font-weight:400">— edit and apply, hover a cell to find its cubie</span></h2>
+      <h2>Moves</h2>
+      <div class="grid18" id="moveGrid"></div>
+      <div class="grid18" style="grid-template-columns: repeat(9, 1fr); margin-top:6px" id="rotRow"></div>
+      <div class="row" style="margin-top:6px">
+        <input type="text" id="seqInput" placeholder="R U R' U'  x  y2 …" spellcheck="false">
+        <button id="btnSeq">Apply</button>
+      </div>
+      <div class="msg" id="seqMsg"></div>
+    </section>
+
+    <section>
+      <h2>Options</h2>
+      <div class="opt">
+        <label for="optSpeed">Turn speed</label>
+        <select id="optSpeed">
+          <option value="360">Slow</option>
+          <option value="180" selected>Normal</option>
+          <option value="90">Fast</option>
+          <option value="0">Instant</option>
+        </select>
+        <label for="optGap">Pause between moves</label>
+        <select id="optGap">
+          <option value="400">Long</option>
+          <option value="120" selected>Short</option>
+          <option value="0">None</option>
+        </select>
+        <label><input type="checkbox" id="optDim" checked>Dim pieces not in the current step</label><span></span>
+        <label><input type="checkbox" id="optState">Show state arrays</label><span></span>
+      </div>
+    </section>
+
+    <section>
+      <h2>Pieces</h2>
+      <div class="msg" id="pickMsg" style="margin-top:0">Click a cubie on the cube to see which piece it is.</div>
+    </section>
+
+    <section id="stateSection" hidden>
+      <h2>State<small>edit and apply, hover a cell to find its cubie</small></h2>
       <table class="state" id="stateTable"></table>
       <div class="row" style="margin-top:8px">
         <button id="btnSet">Apply edits</button>
@@ -164,16 +234,19 @@ const COLOR_VARS   = ['var(--white)','var(--red)','var(--green)','var(--yellow)'
 const COLOR_NAMES  = ['white','red','green','yellow','orange','blue'];
 const AXIS_OF_FACE = { U:[1,'Y',-1], D:[1,'Y',1], R:[0,'X',1], L:[0,'X',-1], F:[2,'Z',1], B:[2,'Z',-1] };
 const GAP = 63;
+const HOME_ORBIT = { x: -28, y: -38 };
 
 const $ = id => document.getElementById(id);
+const START_METHOD = new URLSearchParams(location.search).get('method');
 const api = async (cmd, params = {}) => {
   const q = new URLSearchParams({ cmd, ...params });
   return (await fetch('/api?' + q.toString())).json();
 };
 
-let snap = null, cubies = [], highlight = new Set(), picked = null, selectedSlot = 0;
+let snap = null, cubies = [], picked = null, selectedSlot = 0;
+let method = 'cfop', opts = { turn: 180, gap: 120, dim: true };
 let plan = [], planPos = 0, playing = false, busy = false;
-let orbit = { x: -28, y: -38 };
+let orbit = { ...HOME_ORBIT };
 
 // Build the 26 cubies once, then only recolour them
 function buildCube() {
@@ -202,10 +275,11 @@ function placeAll(instant) {
 }
 function applyOrbit() { $('cube').style.transform = `rotateX(${orbit.x}deg) rotateY(${orbit.y}deg)`; }
 
+// Sticker colour goes in a custom property so the gloss gradient in CSS can sit on top of it
 function paint(el, colorsByFace) {
   el.querySelectorAll('.face').forEach((f, i) => {
     const c = colorsByFace[i];
-    f.style.background = c == null ? 'var(--plastic)' : COLOR_VARS[c];
+    f.style.setProperty('--c', c == null ? 'var(--plastic)' : COLOR_VARS[c]);
     f.classList.toggle('sticker', c != null);
   });
 }
@@ -219,36 +293,89 @@ function render() {
     else by[+el.dataset.idx] = snap.faces[+el.dataset.idx];
     paint(el, by);
   }
-  applyHighlight();
   renderStatus();
+  renderStage();
+  applyHighlight();
   renderState();
 }
 
+// The CFOP stage the cube is at, in the current frame
+function stageOf(s) {
+  if (s.solved) return 'done';
+  if (!s.cross) return 'cross';
+  if (!s.f2l) return 'f2l';
+  if (!s.oll) return 'oll';
+  return 'pll';
+}
+const STAGE_ORDER = ['cross', 'f2l', 'oll', 'pll', 'done'];
+
 function renderStatus() {
-  $('chipSolved').classList.toggle('on', snap.solved);
-  $('chipCross').classList.toggle('on', snap.cross);
-  const n = snap.pairs.filter(Boolean).length;
-  $('pairCount').textContent = n + '/4';
-  $('chipF2L').classList.toggle('on', snap.cross && n === 4);
+  const cur = stageOf(snap), at = STAGE_ORDER.indexOf(cur);
+  $('stepper').hidden = method !== 'cfop';
+  document.querySelectorAll('#stepper .st').forEach(c => {
+    const i = STAGE_ORDER.indexOf(c.dataset.stage);
+    c.classList.toggle('on', i < at);
+    c.classList.toggle('cur', i === at);
+  });
+  $('pairCount').textContent = snap.pairs.filter(Boolean).length + '/4';
   $('holdText').textContent = snap.hold || 'identity';
   $('holdFaces').textContent = ' · U ' + COLOR_NAMES[snap.faces[0]] + ', F ' + COLOR_NAMES[snap.faces[2]];
   $('btnUndo').disabled = snap.history === 0;
-  document.querySelectorAll('button.pair').forEach(b => b.style.opacity = snap.pairs[+b.dataset.slot] ? .55 : 1);
 }
 
-// Highlight sets are piece ids, so the pieces glow wherever they currently sit
-function highlightedPieces() {
-  const set = new Set();
-  const add = (kind, piece) => set.add(kind + piece);
-  for (const h of highlight) {
-    if (h === 'cross' || h === 'f2l') [4,5,6,7].forEach(p => add('e', p));
-    if (h === 'f2l') [0,1,2,3].forEach(k => { add('c', 4 + k); add('e', 8 + k); });
-    if (h[0] === 'p') { const k = +h[1]; add('c', 4 + k); add('e', 8 + k); }
+// Only the controls for the stage the cube is at, or a single solve for Kociemba
+function renderStage() {
+  const box = $('stage'), cur = stageOf(snap);
+  const btn = (id, text, cls) => `<button id="${id}"${cls ? ` class="${cls}"` : ''}>${text}</button>`;
+  let html = '';
+  if (method === 'kociemba') {
+    $('stageTitle').textContent = 'Solution';
+    html = snap.solved
+      ? `<h3>Solved</h3><p>Scramble for a new cube, or turn it by hand.</p>`
+      : `<h3>Kociemba<span>two-phase search</span></h3><p>Finds a short solution for the whole cube in one go, usually 18 to 22 moves. Not a human method, so there are no steps.</p>
+         <div class="row">${btn('btnKociemba', 'Find solution', 'primary')}</div>`;
+  } else {
+    $('stageTitle').textContent = 'Current step';
+    if (cur === 'cross') {
+      html = `<h3>Cross<span>step 1 of 4</span></h3><p>Put the four bottom edges in place. Best cross tries every colour and rotates the cube to hold it on the bottom.</p>
+        <div class="row">${btn('btnBestCross', 'Best cross', 'primary')}${btn('btnCross', `Cross on ${COLOR_NAMES[snap.faces[3]]}`)}</div>`;
+    } else if (cur === 'f2l') {
+      const left = [0,1,2,3].filter(k => !snap.pairs[k]);
+      if (!left.includes(selectedSlot)) selectedSlot = left[0];
+      html = `<h3>F2L<span>step 2 of 4 · ${4 - left.length}/4 pairs in</span></h3><p>Insert each corner-edge pair into its slot. Pick a slot, or let the solver choose the cheapest pair each time.</p>
+        <div class="row">${left.map(k => `<button class="pair${k === selectedSlot ? ' on' : ''}" data-slot="${k}">${CORNER_NAMES[4 + k]}</button>`).join('')}${btn('btnPair', 'Insert pair', 'primary')}</div>
+        <div class="row">${btn('btnF2L', 'Finish F2L')}</div>`;
+    } else if (cur === 'oll') {
+      html = `<h3>OLL<span>step 3 of 4</span></h3><p>Orient the last layer so every top sticker faces up. One algorithm, picked from the 57 cases.</p>
+        <div class="row">${btn('btnOLL', 'Orient last layer', 'primary')}</div>`;
+    } else if (cur === 'pll') {
+      html = `<h3>PLL<span>step 4 of 4</span></h3><p>Permute the last layer pieces into place. One algorithm, picked from the 21 cases.</p>
+        <div class="row">${btn('btnPLL', 'Permute last layer', 'primary')}</div>`;
+    } else {
+      html = `<h3>Solved</h3><p>Scramble for a new cube, or turn it by hand.</p>`;
+    }
   }
+  box.innerHTML = html;
+  box.querySelectorAll('button.pair').forEach(b => b.onclick = () => { selectedSlot = +b.dataset.slot; renderStage(); applyHighlight(); });
+  const wire = (id, fn) => { const b = box.querySelector('#' + id); if (b) b.onclick = fn; };
+  wire('btnBestCross', bestCross); wire('btnCross', crossHere);
+  wire('btnPair', insertPair); wire('btnF2L', finishF2L);
+  wire('btnOLL', oll); wire('btnPLL', pll); wire('btnKociemba', kociemba);
+}
+
+// The pieces the current stage is about, so they are the ones left lit
+function stagePieces() {
+  const set = new Set();
+  if (method !== 'cfop') return set;
+  const cur = stageOf(snap);
+  const add = (kind, piece) => set.add(kind + piece);
+  if (cur === 'cross') [4,5,6,7].forEach(p => add('e', p));
+  if (cur === 'f2l') { [4,5,6,7].forEach(p => add('e', p)); add('c', 4 + selectedSlot); add('e', 8 + selectedSlot); }
+  if (cur === 'oll' || cur === 'pll') [0,1,2,3].forEach(k => { add('c', k); add('e', k); });
   return set;
 }
 function applyHighlight() {
-  const set = highlightedPieces();
+  const set = opts.dim ? stagePieces() : new Set();
   for (const el of cubies) {
     let on = true;
     if (set.size) {
@@ -258,7 +385,6 @@ function applyHighlight() {
     el.classList.toggle('dim', !on);
     el.classList.toggle('picked', picked && picked.kind === el.dataset.kind && picked.idx === +el.dataset.idx);
   }
-  document.querySelectorAll('button.toggle').forEach(b => b.classList.toggle('on', highlight.has(b.dataset.hl)));
 }
 
 function pick(kind, idx) {
@@ -268,15 +394,14 @@ function pick(kind, idx) {
   if (kind === 'c') {
     const piece = snap.cp[idx], tw = snap.co[idx];
     msg.innerHTML = `Slot <b>${CORNER_NAMES[idx]}</b> (cp[${idx}]) holds corner <b>${CORNER_NAMES[piece]}</b> (${piece}), twist ${tw}` + (piece >= 4 ? ` — ${CORNER_NAMES[piece]} pair` : '');
-    if (piece >= 4) selectSlot(piece - 4);
+    if (piece >= 4 && method === 'cfop' && stageOf(snap) === 'f2l' && !snap.pairs[piece - 4]) { selectedSlot = piece - 4; renderStage(); }
   } else if (kind === 'e') {
     const piece = snap.ep[idx], fl = snap.eo[idx];
     msg.innerHTML = `Slot <b>${EDGE_NAMES[idx]}</b> (ep[${idx}]) holds edge <b>${EDGE_NAMES[piece]}</b> (${piece}), flip ${fl}` + (piece >= 8 ? ` — ${CORNER_NAMES[piece - 4]} pair` : piece >= 4 ? ' — cross edge' : '');
-    if (piece >= 8) selectSlot(piece - 8);
+    if (piece >= 8 && method === 'cfop' && stageOf(snap) === 'f2l' && !snap.pairs[piece - 8]) { selectedSlot = piece - 8; renderStage(); }
   } else msg.innerHTML = `Centre <b>${'URFDLB'[idx]}</b> — ${COLOR_NAMES[snap.faces[idx]]}`;
   applyHighlight(); renderState();
 }
-function selectSlot(k) { selectedSlot = k; document.querySelectorAll('button.pair').forEach(b => b.classList.toggle('on', +b.dataset.slot === k)); }
 
 // State table: one editable cell per slot, green when the piece is home and oriented
 function renderState() {
@@ -326,9 +451,9 @@ async function applyTokens(tokens, animate = true) {
   if (busy || !tokens.length) return;
   busy = true;
   try {
-    if (animate && tokens.length === 1) {
+    if (animate && tokens.length === 1 && opts.turn > 0) {
       animateToken(tokens[0]);
-      const [res] = await Promise.all([api('apply', { seq: tokens[0] }), new Promise(r => setTimeout(r, 190))]);
+      const [res] = await Promise.all([api('apply', { seq: tokens[0] }), new Promise(r => setTimeout(r, opts.turn + 10))]);
       if (res.error) { $('seqMsg').textContent = res.error; $('seqMsg').className = 'msg err'; placeAll(false); return; }
       snap = res; placeAll(true); render();
     } else {
@@ -345,7 +470,7 @@ function setPlan(groups, msg) {
   plan = []; planPos = 0;
   for (const g of groups) { if (g.label) plan.push({ label: g.label }); for (const t of g.tokens) plan.push({ tok: t }); }
   renderPlan();
-  $('solveMsg').textContent = msg || ''; $('solveMsg').className = 'msg';
+  $('planMsg').textContent = msg || ''; $('planMsg').className = 'msg';
 }
 function renderPlan() {
   const el = $('plan'); el.innerHTML = '';
@@ -359,13 +484,14 @@ function renderPlan() {
   });
   const total = plan.filter(p => p.tok).length;
   $('btnStep').disabled = $('btnPlay').disabled = $('btnAll').disabled = planPos >= total;
+  $('btnClear').disabled = plan.length === 0;
 }
 function nextToken() { let seen = 0; for (const p of plan) { if (!p.tok) continue; if (seen === planPos) return p.tok; seen++; } return null; }
 async function step() { const t = nextToken(); if (!t) return; await applyTokens([t]); planPos++; renderPlan(); }
 async function play() {
   if (playing) { playing = false; $('btnPlay').textContent = 'Play'; return; }
   playing = true; $('btnPlay').textContent = 'Pause';
-  while (playing && nextToken()) { await step(); await new Promise(r => setTimeout(r, 120)); }
+  while (playing && nextToken()) { await step(); if (opts.gap) await new Promise(r => setTimeout(r, opts.gap)); }
   playing = false; $('btnPlay').textContent = 'Play';
 }
 async function applyAll() {
@@ -375,56 +501,97 @@ async function applyAll() {
 }
 
 function fail(res, where) { if (res.error) { $(where).textContent = res.error; $(where).className = 'msg err'; return true; } return false; }
+function note(where, text, cls) { $(where).textContent = text; $(where).className = 'msg' + (cls ? ' ' + cls : ''); }
 
 async function bestCross() {
-  const r = await api('bestcross'); if (fail(r, 'solveMsg')) return;
+  const r = await api('bestcross'); if (fail(r, 'planMsg')) return;
   const rot = r.rotation ? r.rotation.split(' ') : [];
   setPlan([{ label: `${r.color} cross · ${r.moves.length} moves` + (rot.length ? ` after ${r.rotation}` : ''), tokens: [...rot, ...r.moves] }]);
-  highlight = new Set(['cross']); applyHighlight();
 }
 async function crossHere() {
-  const r = await api('cross'); if (fail(r, 'solveMsg')) return;
-  setPlan([{ label: `cross on D · ${r.moves.length} moves`, tokens: r.moves }], r.moves.length ? '' : 'Cross is already solved in this frame.');
-  highlight = new Set(['cross']); applyHighlight();
+  const r = await api('cross'); if (fail(r, 'planMsg')) return;
+  setPlan([{ label: `${COLOR_NAMES[snap.faces[3]]} cross · ${r.moves.length} moves`, tokens: r.moves }]);
 }
 async function insertPair() {
-  const r = await api('pair', { slot: selectedSlot }); if (fail(r, 'solveMsg')) return;
-  const nm = CORNER_NAMES[4 + selectedSlot];
-  setPlan([{ label: `${nm} pair · ${r.moves.length} moves`, tokens: r.moves }], r.moves.length ? '' : `${nm} pair is already in.`);
-  highlight = new Set(['p' + selectedSlot]); applyHighlight();
+  const r = await api('pair', { slot: selectedSlot }); if (fail(r, 'planMsg')) return;
+  setPlan([{ label: `${CORNER_NAMES[4 + selectedSlot]} pair · ${r.moves.length} moves`, tokens: r.moves }]);
 }
-async function greedyF2L() {
-  const r = await api('f2l'); if (fail(r, 'solveMsg')) return;
+async function finishF2L() {
+  const r = await api('f2l'); if (fail(r, 'planMsg')) return;
   const total = r.pairs.reduce((n, p) => n + p.moves.length, 0);
-  setPlan(r.pairs.map(p => ({ label: `${CORNER_NAMES[4 + p.slot]} pair · ${p.moves.length}`, tokens: p.moves })), `F2L in ${total} moves, greedy order.`);
-  highlight = new Set(['f2l']); applyHighlight();
+  setPlan(r.pairs.map(p => ({ label: `${CORNER_NAMES[4 + p.slot]} pair · ${p.moves.length}`, tokens: p.moves })), `F2L in ${total} moves, cheapest pair first.`);
+}
+async function oll() {
+  const r = await api('oll'); if (fail(r, 'planMsg')) return;
+  setPlan([{ label: `OLL · ${r.moves.length} moves`, tokens: r.moves }]);
+}
+async function pll() {
+  const r = await api('pll'); if (fail(r, 'planMsg')) return;
+  setPlan([{ label: `PLL · ${r.moves.length} moves`, tokens: r.moves }]);
 }
 async function kociemba() {
-  $('solveMsg').textContent = 'Searching…';
-  const r = await api('kociemba'); if (fail(r, 'solveMsg')) return;
-  setPlan([{ label: `Kociemba · ${r.moves.length} moves`, tokens: r.moves }], r.moves.length ? '' : 'Already solved.');
+  note('planMsg', 'Searching…');
+  const r = await api('kociemba'); if (fail(r, 'planMsg')) return;
+  setPlan([{ label: `Kociemba · ${r.moves.length} moves`, tokens: r.moves }]);
+  return r.moves.length;
+}
+
+// Whole solve with the chosen method, from wherever the cube is; CFOP folds the
+// rotation into its first step
+async function planSolution() {
+  if (snap.solved) { note('solveMsg', 'Already solved.'); return false; }
+  if (method === 'kociemba') {
+    const n = await kociemba();
+    if (n == null) return false;
+    note('solveMsg', `Kociemba: ${n} moves.`);
+    return true;
+  }
+  const r = await api('cfop'); if (fail(r, 'solveMsg')) return false;
+  const rot = r.rotation ? r.rotation.split(' ') : [];
+  const total = r.steps.reduce((n, s) => n + s.moves.length, 0);
+  const groups = [];
+  r.steps.forEach((s, i) => {
+    const tokens = i === 0 ? [...rot, ...s.moves] : s.moves;
+    if (tokens.length) groups.push({ label: `${s.label} · ${s.moves.length}` + (i === 0 && rot.length ? ` after ${r.rotation}` : ''), tokens });
+  });
+  setPlan(groups);
+  note('solveMsg', `CFOP: ${total} moves.`);
+  return true;
+}
+async function playSolution() {
+  if (busy || playing) return;
+  if (!await planSolution()) return;
+  await play();
+  if (snap.solved) note('solveMsg', 'Solved.', 'ok');
 }
 
 async function scramble() {
-  if (busy) return;
+  if (busy || playing) return;
   const r = await api('scramble'); snap = r.state; render();
-  setPlan([], ''); $('seqMsg').textContent = 'Scramble: ' + r.moves.join(' '); $('seqMsg').className = 'msg';
+  setPlan([], ''); note('solveMsg', '');
+  note('seqMsg', 'Scramble: ' + r.moves.join(' '));
 }
-async function reset() { snap = await api('reset'); render(); setPlan([], ''); }
-async function undo() { snap = await api('undo'); render(); }
+async function reset() { if (busy || playing) return; snap = await api('reset'); render(); setPlan([], ''); note('solveMsg', ''); }
+async function undo() { if (busy || playing) return; snap = await api('undo'); render(); }
 
 async function applyEdits() {
-  const vals = k => Array.from($('stateTable').querySelectorAll(`input[data-key=${k}]`)).map(i => i.value.trim()).join(',');
+  const vals = key => Array.from($('stateTable').querySelectorAll(`input[data-key=${key}]`)).map(i => i.value.trim()).join(',');
   const r = await api('set', { cp: vals('cp'), co: vals('co'), ep: vals('ep'), eo: vals('eo') });
   if (fail(r, 'setMsg')) return;
-  snap = r; render(); $('setMsg').textContent = 'Applied.'; $('setMsg').className = 'msg';
+  snap = r; render(); note('setMsg', 'Applied.');
+}
+
+function setMethod(m) {
+  method = m;
+  setPlan([], ''); note('solveMsg', '');
+  render();
 }
 
 function wireUI() {
-  const grid = $('moveGrid');
+  const mg = $('moveGrid');
   for (const f of 'URFDLB') for (const suf of ['', '2', "'"]) {
     const b = document.createElement('button'); b.className = 'mv'; b.textContent = f + suf;
-    b.onclick = () => applyTokens([f + suf]); grid.appendChild(b);
+    b.onclick = () => applyTokens([f + suf]); mg.appendChild(b);
   }
   const rr = $('rotRow');
   for (const r of 'xyz') for (const suf of ['', '2', "'"]) {
@@ -433,17 +600,19 @@ function wireUI() {
   }
   $('btnSeq').onclick = () => { const toks = $('seqInput').value.trim().split(/\s+/).filter(Boolean); applyTokens(toks, toks.length === 1); };
   $('seqInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnSeq').click(); e.stopPropagation(); });
-  document.querySelectorAll('button.toggle').forEach(b => b.onclick = () => { const k = b.dataset.hl; highlight.has(k) ? highlight.delete(k) : highlight.add(k); applyHighlight(); });
-  $('btnHlClear').onclick = () => { highlight.clear(); picked = null; applyHighlight(); renderState(); };
-  document.querySelectorAll('button.pair').forEach(b => b.onclick = () => selectSlot(+b.dataset.slot));
-  $('btnBestCross').onclick = bestCross; $('btnCross').onclick = crossHere; $('btnKociemba').onclick = kociemba;
-  $('btnPair').onclick = insertPair; $('btnF2L').onclick = greedyF2L;
+  $('method').onchange = e => setMethod(e.target.value);
+  $('optSpeed').onchange = e => { opts.turn = +e.target.value; document.documentElement.style.setProperty('--turn', opts.turn + 'ms'); };
+  $('optGap').onchange = e => { opts.gap = +e.target.value; };
+  $('optDim').onchange = e => { opts.dim = e.target.checked; applyHighlight(); };
+  $('optState').onchange = e => { $('stateSection').hidden = !e.target.checked; };
+  $('btnView').onclick = () => { orbit = { ...HOME_ORBIT }; applyOrbit(); };
+  $('btnPlaySolution').onclick = playSolution; $('btnPlanSolution').onclick = planSolution;
   $('btnStep').onclick = step; $('btnPlay').onclick = play; $('btnAll').onclick = applyAll; $('btnClear').onclick = () => setPlan([], '');
   $('btnScramble').onclick = scramble; $('btnReset').onclick = reset; $('btnUndo').onclick = undo;
-  $('btnSet').onclick = applyEdits; $('btnRevert').onclick = () => { renderState(); $('setMsg').textContent = ''; };
+  $('btnSet').onclick = applyEdits; $('btnRevert').onclick = () => { renderState(); note('setMsg', ''); };
 
   const vp = $('viewport'); let drag = null;
-  vp.addEventListener('mousedown', e => { drag = { x: e.clientX, y: e.clientY, ox: orbit.x, oy: orbit.y }; });
+  vp.addEventListener('mousedown', e => { if (e.target.closest('button')) return; drag = { x: e.clientX, y: e.clientY, ox: orbit.x, oy: orbit.y }; });
   window.addEventListener('mousemove', e => { if (!drag) return; orbit.y = drag.oy + (e.clientX - drag.x) * .4; orbit.x = Math.max(-90, Math.min(90, drag.ox - (e.clientY - drag.y) * .4)); applyOrbit(); });
   window.addEventListener('mouseup', () => drag = null);
   vp.addEventListener('touchstart', e => { const t = e.touches[0]; drag = { x: t.clientX, y: t.clientY, ox: orbit.x, oy: orbit.y }; }, { passive: true });
@@ -451,7 +620,7 @@ function wireUI() {
   vp.addEventListener('touchend', () => drag = null);
 
   window.addEventListener('keydown', e => {
-    if (e.target.tagName === 'INPUT' || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.metaKey || e.ctrlKey || e.altKey) return;
     const k = e.key.toLowerCase();
     if ('urfdlb'.includes(k) && k) { applyTokens([k.toUpperCase() + (e.shiftKey ? "'" : '')]); e.preventDefault(); }
     else if ('xyz'.includes(k) && k) { applyTokens([k + (e.shiftKey ? "'" : '')]); e.preventDefault(); }
@@ -463,6 +632,7 @@ function wireUI() {
 
 (async () => {
   buildCube(); wireUI();
+  if (START_METHOD === 'kociemba') { method = 'kociemba'; $('method').value = 'kociemba'; }
   snap = await api('state'); render(); renderPlan();
 })();
 </script>

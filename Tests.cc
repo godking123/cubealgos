@@ -1090,6 +1090,7 @@ static bool runAllTests() {
         bool ok = true;
         for (int i = 0; i < METHOD_COUNT; i++) {
             if (!METHODS[i].implemented) continue;
+            METHODS[i].buildTables();
             for (uint64_t seed = 0; seed < 10; seed++) {
                 CubeState s = CubeState::solved();
                 for (Move m : randomScramble(20, seed)) s = s.apply(m);

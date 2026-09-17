@@ -11,6 +11,7 @@ uint64_t encode(const CubeState& s, uint16_t edges, uint8_t corners) {
     for (int slot = 0; slot < 12; slot++) edgeSlot[s.ep[slot]]   = slot;
     for (int slot = 0; slot < 8;  slot++) cornerSlot[s.cp[slot]] = slot;
 
+    // 64 Bit Int (60 Used)
     uint64_t key = 0;
     for (int piece = 0; piece < 12; piece++) {
         if (!(edges & (1 << piece))) continue;

@@ -5,6 +5,8 @@
 #include "../Solvers/CFOP/PieceSearch.h"
 #include "../Solvers/CFOP/Cross/Cross.h"
 #include "../Solvers/CFOP/F2L/F2L.h"
+#include "../Solvers/CFOP/OLL/OLL.h"
+#include "../Solvers/CFOP/PLL/PLL.h"
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -72,7 +74,9 @@ std::string snapshot(const Session& ss) {
         bool in = PieceSearch::isSolved(s, 1 << F2L::edge(k), 1 << F2L::corner(k));
         o << (k ? "," : "") << (in ? "true" : "false");
     }
-    o << "],\"history\":" << ss.history.size() << "}";
+    o << "],\"f2l\":" << (F2L::isSolved(s) ? "true" : "false")
+      << ",\"oll\":" << (F2L::isSolved(s) && OLL::isSolved(s) ? "true" : "false")
+      << ",\"history\":" << ss.history.size() << "}";
     return o.str();
 }
 
@@ -129,6 +133,27 @@ int placedMask(const CubeState& s) {
     for (int k = 0; k < F2L::SLOTS; k++)
         if (PieceSearch::isSolved(s, 1 << F2L::edge(k), 1 << F2L::corner(k))) mask |= 1 << k;
     return mask;
+}
+
+std::string step(const std::string& label, const std::vector<Move>& m) {
+    return "{\"label\":" + quoted(label) + ",\"moves\":" + moves(m) + "}";
+}
+
+// Every stage in the cross frame, so the page shows the rotation once and the moves
+// as a solver holding the cube would make them
+std::string cfop(const CubeState& start) {
+    CrossResult cross = Cross::bestCross(start);
+    CubeState s = start.rotate(cross.hold);
+    auto run = [&](const std::vector<Move>& m) { for (Move x : m) s = s.apply(x); return m; };
+
+    std::string out = "{\"rotation\":" + quoted(rotationsTo(cross.hold)) + ",\"steps\":[";
+    out += step(std::string(colorName(cross.color)) + " cross", run(cross.moves));
+    static const char* slotName[] = {"DFR", "DLF", "DBL", "DRB"};
+    for (const F2LPair& p : F2L::solve(s))
+        out += "," + step(std::string(slotName[p.slot]) + " pair", run(p.moves));
+    out += "," + step("OLL", run(OLL::solve(s)));
+    out += "," + step("PLL", run(PLL::solve(s)));
+    return out + "]}";
 }
 
 std::string handle(Session& ss, const std::string& cmd, std::map<std::string, std::string>& q) {
@@ -200,6 +225,16 @@ std::string handle(Session& ss, const std::string& cmd, std::map<std::string, st
         }
         return out + "]}";
     }
+    if (cmd == "oll") {
+        if (!F2L::isSolved(ss.state)) return err("Solve F2L first");
+        return "{\"moves\":" + moves(OLL::solve(ss.state)) + "}";
+    }
+    if (cmd == "pll") {
+        if (!F2L::isSolved(ss.state)) return err("Solve F2L first");
+        if (!OLL::isSolved(ss.state)) return err("Orient the last layer first");
+        return "{\"moves\":" + moves(PLL::solve(ss.state)) + "}";
+    }
+    if (cmd == "cfop") return cfop(ss.state);
     if (cmd == "kociemba") return "{\"moves\":" + moves(Kociemba::solve(ss.state)) + "}";
     return err("Unknown command: " + cmd);
 }
@@ -229,6 +264,8 @@ int main(int argc, char** argv) {
     int port = argc > 1 ? std::atoi(argv[1]) : 8080;
     std::cout << "Building tables..." << std::flush;
     Kociemba::buildTables();
+    OLL::buildTables();
+    PLL::buildTables();
     std::cout << " done\n";
 
     int server = socket(AF_INET, SOCK_STREAM, 0);
@@ -259,13 +296,14 @@ int main(int argc, char** argv) {
         std::string method, target;
         line >> method >> target;
 
-        if (target == "/" || target == "/index.html") {
+        size_t qm = target.find('?');
+        std::string path = target.substr(0, qm);
+        if (path == "/" || path == "/index.html") {
             std::string page = readFile("Simulator/index.html");
             if (page.empty()) page = readFile("index.html");
             if (page.empty()) respond(fd, "404 Not Found", "text/plain", "index.html not found, run from the repo root");
             else respond(fd, "200 OK", "text/html; charset=utf-8", page);
-        } else if (target.rfind("/api", 0) == 0) {
-            size_t qm = target.find('?');
+        } else if (path == "/api") {
             auto q = query(qm == std::string::npos ? "" : target.substr(qm + 1));
             respond(fd, "200 OK", "application/json", handle(session, q["cmd"], q));
         } else {
