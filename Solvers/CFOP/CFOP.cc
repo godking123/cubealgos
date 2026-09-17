@@ -21,19 +21,27 @@ static void append(std::vector<Move>& moves, CubeState& state,
 }
 
 // Every stage works in the cross frame, the cheapest colour on the bottom
-// The solution is translated back at the end so Main executes it in the scrambling
-// frame like every other method
-std::vector<Move> solve(const CubeState& s) {
+// Each stage is translated back so Main executes it in the scrambling frame like
+// every other method
+std::vector<Stage> stages(const CubeState& s) {
     CrossResult cross = Cross::bestCross(s);
     CubeState state = s.rotate(cross.hold);
+    std::vector<Stage> result = {{"Cross", {}}, {"F2L", {}}, {"OLL", {}}, {"PLL", {}}};
+
+    append(result[0].moves, state, cross.moves);
+    for (const F2LPair& p : F2L::solve(state)) append(result[1].moves, state, p.moves);
+    append(result[2].moves, state, OLL::solve(state));
+    append(result[3].moves, state, PLL::solve(state));
+
+    for (Stage& stage : result)
+        for (Move& m : stage.moves) m = translateMove(m, cross.hold);
+    return result;
+}
+
+std::vector<Move> solve(const CubeState& s) {
     std::vector<Move> moves;
-
-    append(moves, state, cross.moves);
-    for (const F2LPair& p : F2L::solve(state)) append(moves, state, p.moves);
-    append(moves, state, OLL::solve(state));
-    append(moves, state, PLL::solve(state));
-
-    for (Move& m : moves) m = translateMove(m, cross.hold);
+    for (const Stage& stage : stages(s))
+        moves.insert(moves.end(), stage.moves.begin(), stage.moves.end());
     return moves;
 }
 
