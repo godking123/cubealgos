@@ -6,57 +6,84 @@
 <title>CubeAlgos Simulator</title>
 <style>
   :root {
-    --bg: #eef0f3; --panel: #ffffff; --panel2: #f6f7f9; --line: #cfd4db; --line2: #e3e6ea;
-    --text: #1f2328; --muted: #656d76; --accent: #1f5fbf; --accent-bg: #e8f0fb; --good: #1a7f37; --good-bg: #e6f4ea;
-    --bad: #b42318; --bad-bg: #fbeae9;
+    --win: #efefef; --panel: #f7f7f7; --panel2: #ffffff; --line: #b9b9b9; --line2: #d6d6d6;
+    --text: #1a1a1a; --muted: #6b6b6b; --sel: #308cc6; --sel-bg: #dbe9f5; --good: #2e7d32; --bad: #b3261e;
     --white: #ffffff; --red: #c8102e; --green: #009b48; --yellow: #ffd500; --orange: #ff5800; --blue: #0046ad;
-    --plastic: #1c1e22;
+    --plastic: #17181b; --wash: rgba(10,10,12,.72);
     --turn: 180ms;
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.45 system-ui, "Segoe UI", Helvetica, Arial, sans-serif; }
+  body { margin: 0; background: var(--win); color: var(--text); font: 12px/1.4 system-ui, "Segoe UI", Helvetica, Arial, sans-serif; overflow: hidden; }
   button, select, input { font: inherit; color: inherit; }
+  #app { display: grid; grid-template-rows: auto auto 1fr auto auto; height: 100%; }
 
-  /* Toolbar */
-  header { display: flex; align-items: center; gap: 12px; height: 46px; padding: 0 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
-  header h1 { font-size: 14px; font-weight: 600; margin: 0 12px 0 0; }
-  header .sep { width: 1px; height: 22px; background: var(--line); }
-  header label { display: flex; align-items: center; gap: 6px; color: var(--muted); }
-  header .spacer { flex: 1; }
+  /* Menu bar */
+  #menubar { display: flex; align-items: center; height: 24px; background: var(--win); border-bottom: 1px solid var(--line2); padding: 0 4px; user-select: none; }
+  #menubar .brand { font-weight: 600; padding: 0 10px 0 6px; color: var(--muted); }
+  .menu { position: relative; }
+  .menu > .title { padding: 3px 9px; cursor: default; }
+  .menu.open > .title, .menu > .title:hover { background: var(--sel); color: #fff; }
+  .menu > .items { display: none; position: absolute; top: 100%; left: 0; min-width: 190px; background: var(--panel2); border: 1px solid var(--line); box-shadow: 2px 3px 6px rgba(0,0,0,.18); padding: 3px 0; z-index: 20; }
+  .menu.open > .items { display: block; }
+  .items .it { display: flex; justify-content: space-between; gap: 20px; padding: 4px 22px 4px 26px; cursor: default; position: relative; white-space: nowrap; }
+  .items .it:hover { background: var(--sel); color: #fff; }
+  .items .it .k { color: var(--muted); font-size: 11px; }
+  .items .it:hover .k { color: #e8f1fa; }
+  .items .it.checked::before { content: "✓"; position: absolute; left: 9px; }
+  .items hr { border: 0; border-top: 1px solid var(--line2); margin: 3px 0; }
 
-  main { display: grid; grid-template-columns: minmax(420px, 1fr) 420px; height: calc(100% - 46px); }
-  @media (max-width: 960px) { main { grid-template-columns: 1fr; height: auto; } #viewport { min-height: 460px; } }
+  /* Ribbon toolbar */
+  #ribbon { background: var(--win); border-bottom: 1px solid var(--line); user-select: none; }
+  #tabs { display: flex; gap: 2px; padding: 4px 6px 0; }
+  #tabs .tab { padding: 3px 12px; border: 1px solid transparent; border-bottom: 0; cursor: default; color: var(--muted); }
+  #tabs .tab.on { background: var(--panel); border-color: var(--line); color: var(--text); margin-bottom: -1px; }
+  #ribbonbody { background: var(--panel); border-top: 1px solid var(--line); padding: 6px 8px 4px; display: flex; gap: 0; min-height: 84px; overflow-x: auto; }
+  .group { display: flex; flex-direction: column; justify-content: space-between; padding: 0 10px; border-right: 1px solid var(--line2); }
+  .group[hidden] { display: none; }
+  .group:last-child { border-right: 0; }
+  .group .g { display: flex; gap: 4px; align-items: flex-start; }
+  .group .gname { text-align: center; color: var(--muted); font-size: 11px; margin-top: 4px; }
+  .rb { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 60px; height: 56px; padding: 4px 8px; background: transparent; border: 1px solid transparent; border-radius: 2px; cursor: default; }
+  .rb:hover { background: var(--panel2); border-color: var(--line); }
+  .rb:active { background: var(--sel-bg); }
+  .rb:disabled { opacity: .45; }
+  .rb .ic { font: 600 18px/1 ui-monospace, Menlo, Consolas, monospace; color: #333; }
+  .rb .lb { font-size: 11px; }
+  .rb.primary .ic { color: var(--sel); }
+  .mvgrid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px; }
+  .mvgrid button, .rotgrid button { min-width: 34px; height: 24px; padding: 0 6px; background: var(--panel2); border: 1px solid var(--line); border-radius: 2px; font: 600 12px ui-monospace, Menlo, Consolas, monospace; cursor: default; }
+  .mvgrid button:hover, .rotgrid button:hover { background: var(--sel-bg); border-color: var(--sel); }
+  .rotgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; }
+  .rotgrid button { color: #7a4a00; }
+  .fields { display: grid; grid-template-columns: auto auto; gap: 4px 8px; align-items: center; }
+  .fields label { white-space: nowrap; }
+  select, input[type=text] { background: var(--panel2); border: 1px solid var(--line); border-radius: 2px; padding: 2px 4px; height: 24px; }
+  select:focus, input[type=text]:focus { outline: none; border-color: var(--sel); }
+  input[type=checkbox] { margin: 0 5px 0 0; vertical-align: -2px; }
+  button.std { background: var(--panel2); border: 1px solid var(--line); border-radius: 2px; padding: 3px 10px; height: 24px; cursor: default; }
+  button.std:hover { background: var(--sel-bg); border-color: var(--sel); }
+  button.std:disabled { opacity: .45; }
+  button.std.primary { background: var(--sel); border-color: #256f9f; color: #fff; }
+  button.std.pair.on { background: var(--sel-bg); border-color: var(--sel); font-weight: 600; }
 
-  /* Viewport */
+  /* Centre: graphics window and dock */
+  #center { display: grid; grid-template-columns: minmax(0, 1fr) 380px; min-height: 0; min-width: 0; }
+  @media (max-width: 900px) { #center { grid-template-columns: 1fr; grid-template-rows: 420px 1fr; } }
   #viewport { position: relative; display: grid; place-items: center; overflow: hidden; cursor: grab; user-select: none;
-    background: radial-gradient(ellipse at 50% 40%, #f7f8fa 0%, #e6e9ed 55%, #d8dce2 100%); }
+    background: radial-gradient(ellipse at 50% 45%, #2a2d33 0%, #16181c 55%, #0b0c0e 100%); }
   #viewport:active { cursor: grabbing; }
-  #holdTag { position: absolute; top: 10px; left: 12px; color: var(--muted); }
-  #holdTag b { color: var(--text); font-weight: 600; }
-  #hint { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); color: var(--muted); font-size: 12px; white-space: nowrap; pointer-events: none; }
-  #viewBtns { position: absolute; top: 10px; right: 12px; display: flex; gap: 4px; }
-
-  /* Stepper under the cube */
-  #stepper { position: absolute; bottom: 36px; left: 50%; transform: translateX(-50%); display: flex; border: 1px solid var(--line); background: var(--panel); border-radius: 3px; overflow: hidden; }
-  #stepper[hidden] { display: none; }
-  #stepper .st { padding: 6px 14px; color: var(--muted); border-right: 1px solid var(--line2); border-bottom: 2px solid transparent; display: flex; gap: 6px; align-items: center; }
-  #stepper .st:last-child { border-right: 0; }
-  #stepper .st .n { font-weight: 600; font-size: 11px; width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--line); display: grid; place-items: center; }
-  #stepper .st.on { color: var(--good); }
-  #stepper .st.on .n { background: var(--good); border-color: var(--good); color: #fff; }
-  #stepper .st.cur { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
-  #stepper .st.cur .n { border-color: var(--accent); color: var(--accent); }
+  #overlay { position: absolute; top: 8px; left: 10px; color: #b9bec7; font-size: 11px; line-height: 1.5; pointer-events: none; }
+  #overlay b { color: #e8ebf0; font-weight: 600; }
 
   /* Cube: black plastic body, glossy stickers, key light from the top front right */
-  .scene { width: 300px; height: 300px; perspective: 1400px; position: relative; margin-bottom: 70px; }
-  .scene::after { content: ""; position: absolute; left: 50%; top: 82%; width: 300px; height: 70px; transform: translate(-50%, 0);
-    background: radial-gradient(ellipse at center, rgba(20,24,30,.45) 0%, rgba(20,24,30,.18) 40%, rgba(20,24,30,0) 70%); filter: blur(6px); pointer-events: none; }
+  .scene { width: 300px; height: 300px; perspective: 1400px; position: relative; }
+  .scene::after { content: ""; position: absolute; left: 50%; top: 84%; width: 300px; height: 70px; transform: translate(-50%, 0);
+    background: radial-gradient(ellipse at center, rgba(0,0,0,.7) 0%, rgba(0,0,0,.3) 40%, rgba(0,0,0,0) 70%); filter: blur(6px); pointer-events: none; }
   .cube { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; }
-  .cubie { position: absolute; width: 60px; height: 60px; left: 120px; top: 120px; transform-style: preserve-3d; transition: transform var(--turn) cubic-bezier(.4,0,.2,1), opacity .2s; }
+  .cubie { position: absolute; width: 60px; height: 60px; left: 120px; top: 120px; transform-style: preserve-3d; transition: transform var(--turn) cubic-bezier(.4,0,.2,1); }
   .cubie.instant { transition: none; }
-  .cubie.dim { opacity: .35; }
-  .cubie.picked .face.sticker { outline: 2px solid var(--accent); outline-offset: -3px; }
+  .cubie.picked .face.sticker { outline: 2px solid #ffd166; outline-offset: -3px; }
   .face { position: absolute; inset: 0; background: var(--plastic); border-radius: 3px; border: 3px solid var(--plastic); backface-visibility: hidden; overflow: hidden; }
   .face.sticker { --c: var(--plastic); background-color: var(--c); border-radius: 4px;
     background-image: linear-gradient(145deg, rgba(255,255,255,.5) 0%, rgba(255,255,255,.16) 30%, rgba(255,255,255,0) 48%, rgba(0,0,0,.08) 70%, rgba(0,0,0,.28) 100%);
@@ -70,156 +97,235 @@
   .face.l::after { background: rgba(0,0,0,.22); }
   .face.b::after { background: rgba(0,0,0,.28); }
   .face.d::after { background: rgba(0,0,0,.36); }
+  /* Dimming is a wash over each face, never opacity on the cubie: opacity would flatten its 3D faces */
+  .cubie.dim .face::after { background: var(--wash); }
   .face.f { transform: translateZ(30px); } .face.b { transform: rotateY(180deg) translateZ(30px); }
   .face.r { transform: rotateY(90deg) translateZ(30px); } .face.l { transform: rotateY(-90deg) translateZ(30px); }
   .face.u { transform: rotateX(90deg) translateZ(30px); } .face.d { transform: rotateX(-90deg) translateZ(30px); }
 
-  /* Side panel */
-  #panel { background: var(--panel); border-left: 1px solid var(--line); overflow-y: auto; height: 100%; }
-  section { padding: 12px 16px; border-bottom: 1px solid var(--line2); }
-  section h2 { font-size: 13px; font-weight: 600; margin: 0 0 8px; }
-  section h2 small { color: var(--muted); font-weight: 400; margin-left: 6px; }
-  .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-  .row + .row { margin-top: 6px; }
-  button { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 3px; padding: 5px 10px; cursor: pointer; line-height: 1.3; }
-  button:hover { background: var(--panel2); border-color: #b8bec7; }
-  button:active { background: #eceef1; }
-  button:disabled { opacity: .5; cursor: default; }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
-  button.primary:hover { background: #1a52a6; }
-  button.small { padding: 3px 7px; font-size: 12px; }
-  button.mv { min-width: 44px; font-weight: 600; font-family: ui-monospace, Menlo, Consolas, monospace; }
-  button.rot { min-width: 0; padding: 5px 4px; font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--muted); }
-  button.pair.on { background: var(--good-bg); border-color: var(--good); color: var(--good); font-weight: 600; }
-  select { background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 4px 6px; }
-  input[type=text] { flex: 1; min-width: 120px; background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 5px 8px; font: 13px ui-monospace, Menlo, Consolas, monospace; }
-  input[type=text]:focus, select:focus { outline: none; border-color: var(--accent); }
-  input[type=checkbox] { margin: 0 6px 0 0; vertical-align: -2px; }
-  .opt { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 6px 12px; }
-  .opt label { color: var(--text); }
-  .grid18 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+  /* Dock */
+  #dock { display: flex; flex-direction: column; gap: 4px; background: var(--win); border-left: 1px solid var(--line); padding: 4px; min-height: 0; overflow: hidden; }
+  .tool[hidden] { display: none; }
+  .tool { background: var(--panel2); border: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+  .tool > .bar { background: linear-gradient(#f4f4f4, #e4e4e4); border-bottom: 1px solid var(--line); padding: 3px 8px; font-weight: 600; display: flex; align-items: center; }
+  .tool > .bar .x { margin-left: auto; color: var(--muted); font-weight: 400; }
+  .tool > .body { padding: 8px; overflow: auto; }
+  #toolStep { flex: 0 0 auto; }
+  #toolLog { flex: 1 1 auto; }
+  #toolLog .body { font: 12px ui-monospace, Menlo, Consolas, monospace; padding: 4px 8px; }
+  #log div { padding: 1px 0; white-space: pre-wrap; word-break: break-word; }
+  #log .t { color: var(--muted); }
+  #log .err { color: var(--bad); }
+  #log .ok { color: var(--good); }
+  #log .cmd { color: var(--sel); }
 
-  .stage { border: 1px solid var(--line); border-radius: 3px; background: var(--panel2); padding: 10px 12px; }
-  .stage h3 { margin: 0 0 2px; font-size: 13px; font-weight: 600; }
+  #stepper { display: flex; border: 1px solid var(--line2); margin-bottom: 8px; }
+  #stepper[hidden] { display: none; }
+  #stepper .st { flex: 1; text-align: center; padding: 4px 2px; color: var(--muted); border-right: 1px solid var(--line2); border-bottom: 2px solid transparent; font-size: 11px; }
+  #stepper .st:last-child { border-right: 0; }
+  #stepper .st.on { color: var(--good); }
+  #stepper .st.on::before { content: "✓ "; }
+  #stepper .st.cur { color: var(--sel); border-bottom-color: var(--sel); font-weight: 600; }
+  .stage h3 { margin: 0 0 2px; font-size: 12px; font-weight: 600; }
   .stage h3 span { color: var(--muted); font-weight: 400; margin-left: 6px; }
-  .stage p { margin: 0 0 8px; color: var(--muted); }
-  .plan { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; min-height: 24px; }
-  .plan .lbl { width: 100%; color: var(--muted); font-size: 12px; margin-top: 4px; }
-  .tok { padding: 2px 7px; border-radius: 2px; background: var(--panel2); border: 1px solid var(--line2); font: 600 12px ui-monospace, Menlo, Consolas, monospace; }
-  .tok.done { opacity: .35; } .tok.next { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
-  .tok.rot { color: #8a5a00; }
-  .msg { color: var(--muted); font-size: 12px; margin-top: 6px; min-height: 16px; }
+  .stage p { margin: 0 0 6px; color: var(--muted); }
+  .row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .row + .row { margin-top: 5px; }
+  .plan { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 8px; min-height: 20px; }
+  .plan .lbl { width: 100%; color: var(--muted); font-size: 11px; margin-top: 3px; }
+  .tok { padding: 1px 6px; border-radius: 2px; background: var(--panel); border: 1px solid var(--line2); font: 600 12px ui-monospace, Menlo, Consolas, monospace; }
+  .tok.done { opacity: .35; } .tok.next { border-color: var(--sel); color: var(--sel); background: var(--sel-bg); }
+  .tok.rot { color: #7a4a00; }
+  .msg { color: var(--muted); font-size: 11px; margin-top: 5px; min-height: 14px; }
   .msg.err { color: var(--bad); }
-  .msg.ok { color: var(--good); }
   table.state { border-collapse: separate; border-spacing: 2px; width: 100%; }
-  table.state th { text-align: left; font-size: 11px; color: var(--muted); font-weight: 600; width: 26px; font-family: ui-monospace, monospace; }
+  table.state th { text-align: left; font-size: 11px; color: var(--muted); font-weight: 600; width: 24px; font-family: ui-monospace, monospace; }
   table.state td { padding: 0; }
-  table.state input { width: 100%; text-align: center; background: var(--panel); border: 1px solid var(--line); border-radius: 2px; padding: 3px 0; font: 12px ui-monospace, Menlo, Consolas, monospace; }
-  table.state input.home { color: var(--good); border-color: #9ccfae; background: var(--good-bg); }
-  table.state input.hover { border-color: var(--accent); background: var(--accent-bg); }
+  table.state input { width: 100%; text-align: center; background: var(--panel2); border: 1px solid var(--line); border-radius: 2px; padding: 2px 0; height: 20px; font: 11px ui-monospace, Menlo, Consolas, monospace; }
+  table.state input.home { color: var(--good); border-color: #9ccfae; background: #eef7f0; }
+  table.state input.hover { border-color: var(--sel); background: var(--sel-bg); }
   table.state .slots td { text-align: center; font-size: 10px; color: var(--muted); font-family: ui-monospace, monospace; }
-  kbd { font: 11px ui-monospace, monospace; background: var(--panel); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; color: var(--muted); }
+
+  /* Command line and status bar */
+  #cmdline { display: flex; align-items: center; gap: 6px; padding: 3px 6px; background: var(--win); border-top: 1px solid var(--line); }
+  #cmdline label { color: var(--text); }
+  #cmd { flex: 1; font-family: ui-monospace, Menlo, Consolas, monospace; }
+  #statusbar { display: flex; gap: 16px; padding: 2px 8px; height: 20px; background: var(--win); border-top: 1px solid var(--line2); color: var(--muted); font-size: 11px; }
+  #statusbar b { color: var(--text); font-weight: 600; }
+  #statusbar .spacer { flex: 1; }
 </style>
 </head>
 <body>
-<header>
-  <h1>CubeAlgos Simulator</h1>
-  <span class="sep"></span>
-  <label>Method
-    <select id="method">
-      <option value="cfop">CFOP — cross, F2L, OLL, PLL</option>
-      <option value="kociemba">Kociemba — shortest, two phase</option>
-    </select>
-  </label>
-  <span class="spacer"></span>
-  <button id="btnScramble" class="primary">Scramble</button>
-  <button id="btnUndo" title="Backspace">Undo</button>
-  <button id="btnReset">Reset</button>
-</header>
-<main>
-  <div id="viewport">
-    <div id="holdTag">Hold: <b id="holdText">identity</b> <span id="holdFaces"></span></div>
-    <div id="viewBtns"><button class="small" id="btnView">Reset view</button></div>
-    <div class="scene"><div class="cube" id="cube"></div></div>
-    <div id="stepper">
-      <span class="st" data-stage="cross"><span class="n">1</span>Cross</span>
-      <span class="st" data-stage="f2l"><span class="n">2</span>F2L <span id="pairCount">0/4</span></span>
-      <span class="st" data-stage="oll"><span class="n">3</span>OLL</span>
-      <span class="st" data-stage="pll"><span class="n">4</span>PLL</span>
-    </div>
-    <div id="hint">drag to orbit · <kbd>U R F D L B</kbd> turn, <kbd>shift</kbd> prime · <kbd>x y z</kbd> rotate · <kbd>space</kbd> step · <kbd>⌫</kbd> undo</div>
+<div id="app">
+  <div id="menubar">
+    <span class="brand">CubeAlgos</span>
+    <div class="menu"><span class="title">File</span><div class="items">
+      <div class="it" data-cmd="scramble">Scramble <span class="k">WCA random state</span></div>
+      <div class="it" data-cmd="reset">Reset cube</div>
+    </div></div>
+    <div class="menu"><span class="title">Edit</span><div class="items">
+      <div class="it" data-cmd="undo">Undo <span class="k">Backspace</span></div>
+    </div></div>
+    <div class="menu"><span class="title">Method</span><div class="items">
+      <div class="it" id="miCfop" data-cmd="method cfop">CFOP <span class="k">cross, F2L, OLL, PLL</span></div>
+      <div class="it" id="miKoc" data-cmd="method kociemba">Kociemba <span class="k">two-phase, shortest</span></div>
+    </div></div>
+    <div class="menu"><span class="title">Solve</span><div class="items">
+      <div class="it" data-cmd="solve">Play solution</div>
+      <div class="it" data-cmd="show">Show solution</div>
+      <hr>
+      <div class="it" data-cmd="step">Step <span class="k">Space</span></div>
+      <div class="it" data-cmd="play">Play / pause</div>
+      <div class="it" data-cmd="apply">Apply all</div>
+      <div class="it" data-cmd="clear">Clear plan <span class="k">Esc</span></div>
+    </div></div>
+    <div class="menu"><span class="title">View</span><div class="items">
+      <div class="it" data-cmd="view reset">Reset view</div>
+      <div class="it" id="miDim" data-cmd="dim">Dim pieces not in step</div>
+      <div class="it" id="miState" data-cmd="state">State arrays panel</div>
+    </div></div>
+    <div class="menu"><span class="title">Help</span><div class="items">
+      <div class="it" data-cmd="help">Commands and keys</div>
+    </div></div>
   </div>
-  <aside id="panel">
-    <section>
-      <h2>Solve</h2>
-      <div class="row">
-        <button id="btnPlaySolution" class="primary">Play solution</button>
-        <button id="btnPlanSolution">Show solution</button>
-      </div>
-      <div class="msg" id="solveMsg"></div>
-    </section>
 
-    <section>
-      <h2 id="stageTitle">Current step</h2>
-      <div class="stage" id="stage"></div>
-      <div class="plan" id="plan"></div>
-      <div class="row" style="margin-top:8px">
-        <button id="btnStep" class="primary">Step</button>
-        <button id="btnPlay">Play</button>
-        <button id="btnAll">Apply all</button>
-        <button id="btnClear">Clear</button>
+  <div id="ribbon">
+    <div id="tabs">
+      <span class="tab on" data-tab="home">Home</span>
+      <span class="tab" data-tab="moves">Moves</span>
+      <span class="tab" data-tab="view">View</span>
+    </div>
+    <div id="ribbonbody">
+      <div class="group" data-tab="home">
+        <div class="g">
+          <button class="rb" data-cmd="scramble"><span class="ic">⤨</span><span class="lb">Scramble</span></button>
+          <button class="rb" data-cmd="reset"><span class="ic">⟲</span><span class="lb">Reset</span></button>
+          <button class="rb" data-cmd="undo" id="rbUndo"><span class="ic">↶</span><span class="lb">Undo</span></button>
+        </div>
+        <div class="gname">Cube</div>
       </div>
-      <div class="msg" id="planMsg"></div>
-    </section>
-
-    <section>
-      <h2>Moves</h2>
-      <div class="grid18" id="moveGrid"></div>
-      <div class="grid18" style="grid-template-columns: repeat(9, 1fr); margin-top:6px" id="rotRow"></div>
-      <div class="row" style="margin-top:6px">
-        <input type="text" id="seqInput" placeholder="R U R' U'  x  y2 …" spellcheck="false">
-        <button id="btnSeq">Apply</button>
+      <div class="group" data-tab="home">
+        <div class="g">
+          <button class="rb primary" data-cmd="solve"><span class="ic">▶</span><span class="lb">Play solution</span></button>
+          <button class="rb" data-cmd="show"><span class="ic">≡</span><span class="lb">Show solution</span></button>
+          <button class="rb" data-cmd="step" id="rbStep"><span class="ic">›</span><span class="lb">Step</span></button>
+          <button class="rb" data-cmd="play" id="rbPlay"><span class="ic">»</span><span class="lb" id="rbPlayLb">Play</span></button>
+          <button class="rb" data-cmd="apply" id="rbAll"><span class="ic">⇥</span><span class="lb">Apply all</span></button>
+          <button class="rb" data-cmd="clear" id="rbClear"><span class="ic">×</span><span class="lb">Clear</span></button>
+        </div>
+        <div class="gname">Solve</div>
       </div>
-      <div class="msg" id="seqMsg"></div>
-    </section>
-
-    <section>
-      <h2>Options</h2>
-      <div class="opt">
-        <label for="optSpeed">Turn speed</label>
-        <select id="optSpeed">
-          <option value="360">Slow</option>
-          <option value="180" selected>Normal</option>
-          <option value="90">Fast</option>
-          <option value="0">Instant</option>
-        </select>
-        <label for="optGap">Pause between moves</label>
-        <select id="optGap">
-          <option value="400">Long</option>
-          <option value="120" selected>Short</option>
-          <option value="0">None</option>
-        </select>
-        <label><input type="checkbox" id="optDim" checked>Dim pieces not in the current step</label><span></span>
-        <label><input type="checkbox" id="optState">Show state arrays</label><span></span>
+      <div class="group" data-tab="home">
+        <div class="g fields">
+          <label for="method">Method</label>
+          <select id="method">
+            <option value="cfop">CFOP — cross, F2L, OLL, PLL</option>
+            <option value="kociemba">Kociemba — two phase, shortest</option>
+          </select>
+        </div>
+        <div class="gname">Method</div>
       </div>
-    </section>
 
-    <section>
-      <h2>Pieces</h2>
-      <div class="msg" id="pickMsg" style="margin-top:0">Click a cubie on the cube to see which piece it is.</div>
-    </section>
-
-    <section id="stateSection" hidden>
-      <h2>State<small>edit and apply, hover a cell to find its cubie</small></h2>
-      <table class="state" id="stateTable"></table>
-      <div class="row" style="margin-top:8px">
-        <button id="btnSet">Apply edits</button>
-        <button id="btnRevert">Revert</button>
+      <div class="group" data-tab="moves" hidden>
+        <div class="g"><div class="mvgrid" id="moveGrid"></div></div>
+        <div class="gname">Face turns</div>
       </div>
-      <div class="msg" id="setMsg"></div>
-    </section>
-  </aside>
-</main>
+      <div class="group" data-tab="moves" hidden>
+        <div class="g"><div class="rotgrid" id="rotRow"></div></div>
+        <div class="gname">Rotations</div>
+      </div>
+      <div class="group" data-tab="moves" hidden>
+        <div class="g fields" style="grid-template-columns: 1fr auto">
+          <input type="text" id="seqInput" placeholder="R U R' U'  x  y2 …" spellcheck="false" style="min-width:220px">
+          <button class="std" id="btnSeq">Apply</button>
+        </div>
+        <div class="gname">Sequence</div>
+      </div>
+
+      <div class="group" data-tab="view" hidden>
+        <div class="g">
+          <button class="rb" data-cmd="view reset"><span class="ic">⌂</span><span class="lb">Reset view</span></button>
+        </div>
+        <div class="gname">Camera</div>
+      </div>
+      <div class="group" data-tab="view" hidden>
+        <div class="g fields">
+          <label for="optSpeed">Turn speed</label>
+          <select id="optSpeed">
+            <option value="360">Slow</option>
+            <option value="180" selected>Normal</option>
+            <option value="90">Fast</option>
+            <option value="0">Instant</option>
+          </select>
+          <label for="optGap">Pause between moves</label>
+          <select id="optGap">
+            <option value="400">Long</option>
+            <option value="120" selected>Short</option>
+            <option value="0">None</option>
+          </select>
+        </div>
+        <div class="gname">Animation</div>
+      </div>
+      <div class="group" data-tab="view" hidden>
+        <div class="g fields" style="grid-template-columns: auto">
+          <label><input type="checkbox" id="optDim" checked>Dim pieces not in the current step</label>
+          <label><input type="checkbox" id="optState">State arrays panel</label>
+        </div>
+        <div class="gname">Display</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="center">
+    <div id="viewport">
+      <div id="overlay">Hold: <b id="holdText">identity</b> <span id="holdFaces"></span><br><span id="pickMsg">Click a cubie to identify it</span></div>
+      <div class="scene"><div class="cube" id="cube"></div></div>
+    </div>
+    <aside id="dock">
+      <div class="tool" id="toolStep">
+        <div class="bar"><span id="stageTitle">Current Step</span></div>
+        <div class="body">
+          <div id="stepper">
+            <span class="st" data-stage="cross">1 Cross</span>
+            <span class="st" data-stage="f2l">2 F2L <span id="pairCount">0/4</span></span>
+            <span class="st" data-stage="oll">3 OLL</span>
+            <span class="st" data-stage="pll">4 PLL</span>
+          </div>
+          <div class="stage" id="stage"></div>
+          <div class="plan" id="plan"></div>
+          <div class="msg" id="planMsg"></div>
+        </div>
+      </div>
+      <div class="tool" id="toolState" hidden>
+        <div class="bar">State <span class="x">hover a cell to find its cubie</span></div>
+        <div class="body">
+          <table class="state" id="stateTable"></table>
+          <div class="row" style="margin-top:6px">
+            <button class="std" id="btnSet">Apply edits</button>
+            <button class="std" id="btnRevert">Revert</button>
+          </div>
+          <div class="msg" id="setMsg"></div>
+        </div>
+      </div>
+      <div class="tool" id="toolLog">
+        <div class="bar">Log <span class="x" id="logClear" style="cursor:default">clear</span></div>
+        <div class="body" id="log"></div>
+      </div>
+    </aside>
+  </div>
+
+  <div id="cmdline">
+    <label for="cmd">Command:</label>
+    <input type="text" id="cmd" spellcheck="false" autocomplete="off" placeholder="R U R' U'   |   scramble, solve, cross, oll, pll, kociemba, method cfop, help">
+  </div>
+  <div id="statusbar">
+    <span>Method: <b id="stMethod">CFOP</b></span>
+    <span>Step: <b id="stStage">—</b></span>
+    <span>History: <b id="stHist">0</b></span>
+    <span class="spacer"></span>
+    <span id="stMsg">Ready</span>
+  </div>
+</div>
 
 <script>
 // Slot geometry mirrors CubeState: corners URF UFL ULB UBR DFR DLF DBL DRB, edges UR UF UL UB DR DF DL DB FR FL BL BR
@@ -235,18 +341,32 @@ const COLOR_NAMES  = ['white','red','green','yellow','orange','blue'];
 const AXIS_OF_FACE = { U:[1,'Y',-1], D:[1,'Y',1], R:[0,'X',1], L:[0,'X',-1], F:[2,'Z',1], B:[2,'Z',-1] };
 const GAP = 63;
 const HOME_ORBIT = { x: -28, y: -38 };
+const MOVE_RE = /^([URFDLB](2|')?|[xyz](2|')?)$/;
 
 const $ = id => document.getElementById(id);
-const START_METHOD = new URLSearchParams(location.search).get('method');
 const api = async (cmd, params = {}) => {
   const q = new URLSearchParams({ cmd, ...params });
   return (await fetch('/api?' + q.toString())).json();
 };
+const QS = new URLSearchParams(location.search);
 
 let snap = null, cubies = [], picked = null, selectedSlot = 0;
 let method = 'cfop', opts = { turn: 180, gap: 120, dim: true };
 let plan = [], planPos = 0, playing = false, busy = false;
 let orbit = { ...HOME_ORBIT };
+if (QS.get('orbit')) { const [x, y] = QS.get('orbit').split(',').map(Number); orbit = { x, y }; }
+const history = [];
+let histPos = 0;
+
+// Log panel, ChimeraX style: everything that happens is written down
+function log(text, cls) {
+  const d = document.createElement('div');
+  if (cls) d.className = cls;
+  d.textContent = text;
+  $('log').appendChild(d);
+  $('log').scrollTop = $('log').scrollHeight;
+}
+function status(text) { $('stMsg').textContent = text; }
 
 // Build the 26 cubies once, then only recolour them
 function buildCube() {
@@ -308,6 +428,7 @@ function stageOf(s) {
   return 'pll';
 }
 const STAGE_ORDER = ['cross', 'f2l', 'oll', 'pll', 'done'];
+const STAGE_NAMES = { cross: 'Cross', f2l: 'F2L', oll: 'OLL', pll: 'PLL', done: 'Solved' };
 
 function renderStatus() {
   const cur = stageOf(snap), at = STAGE_ORDER.indexOf(cur);
@@ -320,36 +441,43 @@ function renderStatus() {
   $('pairCount').textContent = snap.pairs.filter(Boolean).length + '/4';
   $('holdText').textContent = snap.hold || 'identity';
   $('holdFaces').textContent = ' · U ' + COLOR_NAMES[snap.faces[0]] + ', F ' + COLOR_NAMES[snap.faces[2]];
-  $('btnUndo').disabled = snap.history === 0;
+  $('rbUndo').disabled = snap.history === 0;
+  $('stHist').textContent = snap.history;
+  $('stMethod').textContent = method === 'cfop' ? 'CFOP' : 'Kociemba';
+  $('stStage').textContent = method === 'cfop' ? STAGE_NAMES[cur] : (snap.solved ? 'Solved' : '—');
+  $('miCfop').classList.toggle('checked', method === 'cfop');
+  $('miKoc').classList.toggle('checked', method === 'kociemba');
+  $('miDim').classList.toggle('checked', opts.dim);
+  $('miState').classList.toggle('checked', !$('toolState').hidden);
 }
 
 // Only the controls for the stage the cube is at, or a single solve for Kociemba
 function renderStage() {
   const box = $('stage'), cur = stageOf(snap);
-  const btn = (id, text, cls) => `<button id="${id}"${cls ? ` class="${cls}"` : ''}>${text}</button>`;
+  const btn = (id, text, cls) => `<button class="std${cls ? ' ' + cls : ''}" id="${id}">${text}</button>`;
   let html = '';
   if (method === 'kociemba') {
     $('stageTitle').textContent = 'Solution';
     html = snap.solved
       ? `<h3>Solved</h3><p>Scramble for a new cube, or turn it by hand.</p>`
-      : `<h3>Kociemba<span>two-phase search</span></h3><p>Finds a short solution for the whole cube in one go, usually 18 to 22 moves. Not a human method, so there are no steps.</p>
+      : `<h3>Kociemba<span>two-phase search</span></h3><p>A short solution for the whole cube in one go, usually 18 to 22 moves. Not a human method, so there are no steps.</p>
          <div class="row">${btn('btnKociemba', 'Find solution', 'primary')}</div>`;
   } else {
-    $('stageTitle').textContent = 'Current step';
+    $('stageTitle').textContent = 'Current Step';
     if (cur === 'cross') {
       html = `<h3>Cross<span>step 1 of 4</span></h3><p>Put the four bottom edges in place. Best cross tries every colour and rotates the cube to hold it on the bottom.</p>
         <div class="row">${btn('btnBestCross', 'Best cross', 'primary')}${btn('btnCross', `Cross on ${COLOR_NAMES[snap.faces[3]]}`)}</div>`;
     } else if (cur === 'f2l') {
       const left = [0,1,2,3].filter(k => !snap.pairs[k]);
       if (!left.includes(selectedSlot)) selectedSlot = left[0];
-      html = `<h3>F2L<span>step 2 of 4 · ${4 - left.length}/4 pairs in</span></h3><p>Insert each corner-edge pair into its slot. Pick a slot, or let the solver choose the cheapest pair each time.</p>
-        <div class="row">${left.map(k => `<button class="pair${k === selectedSlot ? ' on' : ''}" data-slot="${k}">${CORNER_NAMES[4 + k]}</button>`).join('')}${btn('btnPair', 'Insert pair', 'primary')}</div>
+      html = `<h3>F2L<span>step 2 of 4 · ${4 - left.length}/4 pairs in</span></h3><p>Insert each corner-edge pair into its slot. Pick a slot, or let the solver take the cheapest pair each time.</p>
+        <div class="row">${left.map(k => `<button class="std pair${k === selectedSlot ? ' on' : ''}" data-slot="${k}">${CORNER_NAMES[4 + k]}</button>`).join('')}${btn('btnPair', 'Insert pair', 'primary')}</div>
         <div class="row">${btn('btnF2L', 'Finish F2L')}</div>`;
     } else if (cur === 'oll') {
-      html = `<h3>OLL<span>step 3 of 4</span></h3><p>Orient the last layer so every top sticker faces up. One algorithm, picked from the 57 cases.</p>
+      html = `<h3>OLL<span>step 3 of 4</span></h3><p>Orient the last layer so every top sticker faces up. One algorithm from the 57 cases.</p>
         <div class="row">${btn('btnOLL', 'Orient last layer', 'primary')}</div>`;
     } else if (cur === 'pll') {
-      html = `<h3>PLL<span>step 4 of 4</span></h3><p>Permute the last layer pieces into place. One algorithm, picked from the 21 cases.</p>
+      html = `<h3>PLL<span>step 4 of 4</span></h3><p>Permute the last layer pieces into place. One algorithm from the 21 cases.</p>
         <div class="row">${btn('btnPLL', 'Permute last layer', 'primary')}</div>`;
     } else {
       html = `<h3>Solved</h3><p>Scramble for a new cube, or turn it by hand.</p>`;
@@ -390,7 +518,7 @@ function applyHighlight() {
 function pick(kind, idx) {
   picked = (picked && picked.kind === kind && picked.idx === idx) ? null : { kind, idx };
   const msg = $('pickMsg');
-  if (!picked) { msg.textContent = 'Click a cubie on the cube to see which piece it is.'; applyHighlight(); renderState(); return; }
+  if (!picked) { msg.textContent = 'Click a cubie to identify it'; applyHighlight(); renderState(); return; }
   if (kind === 'c') {
     const piece = snap.cp[idx], tw = snap.co[idx];
     msg.innerHTML = `Slot <b>${CORNER_NAMES[idx]}</b> (cp[${idx}]) holds corner <b>${CORNER_NAMES[piece]}</b> (${piece}), twist ${tw}` + (piece >= 4 ? ` — ${CORNER_NAMES[piece]} pair` : '');
@@ -447,21 +575,22 @@ function animateToken(tok) {
   }
 }
 
-async function applyTokens(tokens, animate = true) {
-  if (busy || !tokens.length) return;
+async function applyTokens(tokens, animate = true, quiet = false) {
+  if (busy || !tokens.length) return false;
   busy = true;
   try {
     if (animate && tokens.length === 1 && opts.turn > 0) {
       animateToken(tokens[0]);
       const [res] = await Promise.all([api('apply', { seq: tokens[0] }), new Promise(r => setTimeout(r, opts.turn + 10))]);
-      if (res.error) { $('seqMsg').textContent = res.error; $('seqMsg').className = 'msg err'; placeAll(false); return; }
+      if (res.error) { log(res.error, 'err'); placeAll(false); return false; }
       snap = res; placeAll(true); render();
     } else {
       const res = await api('apply', { seq: tokens.join(' ') });
-      if (res.error) { $('seqMsg').textContent = res.error; $('seqMsg').className = 'msg err'; return; }
+      if (res.error) { log(res.error, 'err'); return false; }
       snap = res; render();
     }
-    $('seqMsg').textContent = ''; $('seqMsg').className = 'msg';
+    if (!quiet) log(tokens.join(' '));
+    return true;
   } finally { busy = false; }
 }
 
@@ -483,70 +612,75 @@ function renderPlan() {
     s.textContent = p.tok; el.appendChild(s); seen++;
   });
   const total = plan.filter(p => p.tok).length;
-  $('btnStep').disabled = $('btnPlay').disabled = $('btnAll').disabled = planPos >= total;
-  $('btnClear').disabled = plan.length === 0;
+  $('rbStep').disabled = $('rbPlay').disabled = $('rbAll').disabled = planPos >= total;
+  $('rbClear').disabled = plan.length === 0;
 }
 function nextToken() { let seen = 0; for (const p of plan) { if (!p.tok) continue; if (seen === planPos) return p.tok; seen++; } return null; }
-async function step() { const t = nextToken(); if (!t) return; await applyTokens([t]); planPos++; renderPlan(); }
+function planLabelAt() { let seen = 0, lbl = ''; for (const p of plan) { if (p.label) { lbl = p.label; continue; } if (seen === planPos) return lbl; seen++; } return lbl; }
+async function step() { const t = nextToken(); if (!t) return; if (await applyTokens([t], true, true)) { planPos++; renderPlan(); } }
 async function play() {
-  if (playing) { playing = false; $('btnPlay').textContent = 'Play'; return; }
-  playing = true; $('btnPlay').textContent = 'Pause';
-  while (playing && nextToken()) { await step(); if (opts.gap) await new Promise(r => setTimeout(r, opts.gap)); }
-  playing = false; $('btnPlay').textContent = 'Play';
+  if (playing) { playing = false; $('rbPlayLb').textContent = 'Play'; return; }
+  playing = true; $('rbPlayLb').textContent = 'Pause';
+  let lbl = null;
+  const done = [];
+  while (playing && nextToken()) {
+    const here = planLabelAt();
+    if (here !== lbl) { if (done.length) log((lbl ? lbl + ': ' : '') + done.join(' ')); done.length = 0; lbl = here; }
+    done.push(nextToken());
+    await step();
+    if (opts.gap) await new Promise(r => setTimeout(r, opts.gap));
+  }
+  if (done.length) log((lbl ? lbl + ': ' : '') + done.join(' '));
+  playing = false; $('rbPlayLb').textContent = 'Play';
 }
 async function applyAll() {
   const rest = []; let seen = 0;
   for (const p of plan) { if (!p.tok) continue; if (seen++ >= planPos) rest.push(p.tok); }
-  await applyTokens(rest, false); planPos += rest.length; renderPlan();
+  if (await applyTokens(rest, false)) { planPos += rest.length; renderPlan(); }
 }
 
-function fail(res, where) { if (res.error) { $(where).textContent = res.error; $(where).className = 'msg err'; return true; } return false; }
-function note(where, text, cls) { $(where).textContent = text; $(where).className = 'msg' + (cls ? ' ' + cls : ''); }
+function fail(res) { if (res.error) { log(res.error, 'err'); status(res.error); return true; } return false; }
+function found(label, moves) {
+  setPlan([{ label, tokens: moves }]);
+  log(`${label}: ${moves.length ? moves.join(' ') : '(nothing to do)'}`, 'ok');
+  status(label);
+}
 
 async function bestCross() {
-  const r = await api('bestcross'); if (fail(r, 'planMsg')) return;
+  const r = await api('bestcross'); if (fail(r)) return;
   const rot = r.rotation ? r.rotation.split(' ') : [];
-  setPlan([{ label: `${r.color} cross · ${r.moves.length} moves` + (rot.length ? ` after ${r.rotation}` : ''), tokens: [...rot, ...r.moves] }]);
+  found(`${r.color} cross · ${r.moves.length} moves` + (rot.length ? ` after ${r.rotation}` : ''), [...rot, ...r.moves]);
 }
 async function crossHere() {
-  const r = await api('cross'); if (fail(r, 'planMsg')) return;
-  setPlan([{ label: `${COLOR_NAMES[snap.faces[3]]} cross · ${r.moves.length} moves`, tokens: r.moves }]);
+  const r = await api('cross'); if (fail(r)) return;
+  found(`${COLOR_NAMES[snap.faces[3]]} cross · ${r.moves.length} moves`, r.moves);
 }
 async function insertPair() {
-  const r = await api('pair', { slot: selectedSlot }); if (fail(r, 'planMsg')) return;
-  setPlan([{ label: `${CORNER_NAMES[4 + selectedSlot]} pair · ${r.moves.length} moves`, tokens: r.moves }]);
+  const r = await api('pair', { slot: selectedSlot }); if (fail(r)) return;
+  found(`${CORNER_NAMES[4 + selectedSlot]} pair · ${r.moves.length} moves`, r.moves);
 }
 async function finishF2L() {
-  const r = await api('f2l'); if (fail(r, 'planMsg')) return;
+  const r = await api('f2l'); if (fail(r)) return;
   const total = r.pairs.reduce((n, p) => n + p.moves.length, 0);
-  setPlan(r.pairs.map(p => ({ label: `${CORNER_NAMES[4 + p.slot]} pair · ${p.moves.length}`, tokens: p.moves })), `F2L in ${total} moves, cheapest pair first.`);
+  setPlan(r.pairs.map(p => ({ label: `${CORNER_NAMES[4 + p.slot]} pair · ${p.moves.length}`, tokens: p.moves })));
+  for (const p of r.pairs) log(`${CORNER_NAMES[4 + p.slot]} pair: ${p.moves.join(' ')}`, 'ok');
+  status(`F2L in ${total} moves`);
 }
-async function oll() {
-  const r = await api('oll'); if (fail(r, 'planMsg')) return;
-  setPlan([{ label: `OLL · ${r.moves.length} moves`, tokens: r.moves }]);
-}
-async function pll() {
-  const r = await api('pll'); if (fail(r, 'planMsg')) return;
-  setPlan([{ label: `PLL · ${r.moves.length} moves`, tokens: r.moves }]);
-}
+async function oll() { const r = await api('oll'); if (fail(r)) return; found(`OLL · ${r.moves.length} moves`, r.moves); }
+async function pll() { const r = await api('pll'); if (fail(r)) return; found(`PLL · ${r.moves.length} moves`, r.moves); }
 async function kociemba() {
-  note('planMsg', 'Searching…');
-  const r = await api('kociemba'); if (fail(r, 'planMsg')) return;
-  setPlan([{ label: `Kociemba · ${r.moves.length} moves`, tokens: r.moves }]);
+  status('Searching…');
+  const r = await api('kociemba'); if (fail(r)) return;
+  found(`Kociemba · ${r.moves.length} moves`, r.moves);
   return r.moves.length;
 }
 
 // Whole solve with the chosen method, from wherever the cube is; CFOP folds the
 // rotation into its first step
 async function planSolution() {
-  if (snap.solved) { note('solveMsg', 'Already solved.'); return false; }
-  if (method === 'kociemba') {
-    const n = await kociemba();
-    if (n == null) return false;
-    note('solveMsg', `Kociemba: ${n} moves.`);
-    return true;
-  }
-  const r = await api('cfop'); if (fail(r, 'solveMsg')) return false;
+  if (snap.solved) { status('Already solved'); log('Already solved.'); return false; }
+  if (method === 'kociemba') return (await kociemba()) != null;
+  const r = await api('cfop'); if (fail(r)) return false;
   const rot = r.rotation ? r.rotation.split(' ') : [];
   const total = r.steps.reduce((n, s) => n + s.moves.length, 0);
   const groups = [];
@@ -555,64 +689,141 @@ async function planSolution() {
     if (tokens.length) groups.push({ label: `${s.label} · ${s.moves.length}` + (i === 0 && rot.length ? ` after ${r.rotation}` : ''), tokens });
   });
   setPlan(groups);
-  note('solveMsg', `CFOP: ${total} moves.`);
+  log(`CFOP solution, ${total} moves` + (rot.length ? ` after ${r.rotation}` : ''), 'ok');
+  for (const s of r.steps) log(`  ${s.label}: ${s.moves.length ? s.moves.join(' ') : '(done)'}`);
+  status(`CFOP: ${total} moves`);
   return true;
 }
 async function playSolution() {
   if (busy || playing) return;
   if (!await planSolution()) return;
   await play();
-  if (snap.solved) note('solveMsg', 'Solved.', 'ok');
+  if (snap.solved) { log('Solved.', 'ok'); status('Solved'); }
 }
 
 async function scramble() {
   if (busy || playing) return;
   const r = await api('scramble'); snap = r.state; render();
-  setPlan([], ''); note('solveMsg', '');
-  note('seqMsg', 'Scramble: ' + r.moves.join(' '));
+  setPlan([], '');
+  log('Scramble: ' + r.moves.join(' '), 'cmd'); status('Scrambled');
 }
-async function reset() { if (busy || playing) return; snap = await api('reset'); render(); setPlan([], ''); note('solveMsg', ''); }
-async function undo() { if (busy || playing) return; snap = await api('undo'); render(); }
+async function reset() { if (busy || playing) return; snap = await api('reset'); render(); setPlan([], ''); log('Reset to solved.'); status('Reset'); }
+async function undo() { if (busy || playing) return; snap = await api('undo'); render(); status('Undo'); }
 
 async function applyEdits() {
   const vals = key => Array.from($('stateTable').querySelectorAll(`input[data-key=${key}]`)).map(i => i.value.trim()).join(',');
   const r = await api('set', { cp: vals('cp'), co: vals('co'), ep: vals('ep'), eo: vals('eo') });
-  if (fail(r, 'setMsg')) return;
-  snap = r; render(); note('setMsg', 'Applied.');
+  if (r.error) { $('setMsg').textContent = r.error; $('setMsg').className = 'msg err'; return; }
+  snap = r; render(); $('setMsg').textContent = 'Applied.'; $('setMsg').className = 'msg'; log('State edited by hand.');
 }
 
 function setMethod(m) {
-  method = m;
-  setPlan([], ''); note('solveMsg', '');
+  method = m; $('method').value = m;
+  setPlan([], '');
   render();
+  log(`Method: ${m === 'cfop' ? 'CFOP' : 'Kociemba'}`);
+}
+function setDim(on) { opts.dim = on; $('optDim').checked = on; applyHighlight(); renderStatus(); }
+function setStatePanel(on) { $('toolState').hidden = !on; $('optState').checked = on; renderStatus(); }
+function showTab(name) {
+  document.querySelectorAll('#tabs .tab').forEach(t => t.classList.toggle('on', t.dataset.tab === name));
+  document.querySelectorAll('#ribbonbody .group').forEach(g => g.hidden = g.dataset.tab !== name);
+}
+
+const HELP = [
+  'Commands: any move sequence (R U R\' U\' x y2 …)',
+  '  scramble | reset | undo',
+  '  solve — play the whole solution   show — plan it without playing',
+  '  step | play | apply | clear',
+  '  bestcross | cross | pair [DFR|DLF|DBL|DRB] | f2l | oll | pll | kociemba',
+  '  method cfop|kociemba   view reset   dim   state   help',
+  'Keys: U R F D L B turn (shift = prime), x y z rotate, Space step, Backspace undo, Esc clear',
+];
+
+// Command line, ChimeraX style: one line does anything the menus do
+async function runCommand(line) {
+  const text = line.trim();
+  if (!text) return;
+  log('> ' + text, 'cmd');
+  const words = text.split(/\s+/);
+  const cmd = words[0].toLowerCase(), arg = (words[1] || '').toLowerCase();
+  if (words.every(w => MOVE_RE.test(w))) { await applyTokens(words, words.length === 1, true); return; }
+  switch (cmd) {
+    case 'scramble': return scramble();
+    case 'reset': return reset();
+    case 'undo': return undo();
+    case 'solve': return playSolution();
+    case 'show': return planSolution();
+    case 'step': return step();
+    case 'play': return play();
+    case 'apply': return applyAll();
+    case 'clear': setPlan([], ''); return;
+    case 'bestcross': return bestCross();
+    case 'cross': return crossHere();
+    case 'pair': {
+      const k = CORNER_NAMES.indexOf(arg.toUpperCase()) - 4;
+      if (arg && k >= 0 && k < 4) selectedSlot = k;
+      return insertPair();
+    }
+    case 'f2l': return finishF2L();
+    case 'oll': return oll();
+    case 'pll': return pll();
+    case 'kociemba': return kociemba();
+    case 'method':
+      if (arg === 'cfop' || arg === 'kociemba') return setMethod(arg);
+      log('method cfop | method kociemba', 'err'); return;
+    case 'view': if (arg === 'reset') { orbit = { ...HOME_ORBIT }; applyOrbit(); } return;
+    case 'dim': return setDim(!opts.dim);
+    case 'state': return setStatePanel($('toolState').hidden);
+    case 'help': HELP.forEach(l => log(l)); return;
+    default: log(`Unknown command: ${cmd}. Type help.`, 'err');
+  }
 }
 
 function wireUI() {
   const mg = $('moveGrid');
   for (const f of 'URFDLB') for (const suf of ['', '2', "'"]) {
-    const b = document.createElement('button'); b.className = 'mv'; b.textContent = f + suf;
+    const b = document.createElement('button'); b.textContent = f + suf;
     b.onclick = () => applyTokens([f + suf]); mg.appendChild(b);
   }
   const rr = $('rotRow');
   for (const r of 'xyz') for (const suf of ['', '2', "'"]) {
-    const b = document.createElement('button'); b.className = 'rot'; b.textContent = r + suf;
+    const b = document.createElement('button'); b.textContent = r + suf;
     b.onclick = () => applyTokens([r + suf]); rr.appendChild(b);
   }
   $('btnSeq').onclick = () => { const toks = $('seqInput').value.trim().split(/\s+/).filter(Boolean); applyTokens(toks, toks.length === 1); };
   $('seqInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnSeq').click(); e.stopPropagation(); });
+
+  // Menus and ribbon share the command line's verbs
+  document.querySelectorAll('[data-cmd]').forEach(el => el.addEventListener('click', () => { closeMenus(); runCommand(el.dataset.cmd); }));
+  document.querySelectorAll('.menu > .title').forEach(t => t.addEventListener('click', e => {
+    const m = t.parentElement, open = m.classList.contains('open');
+    closeMenus(); if (!open) m.classList.add('open'); e.stopPropagation();
+  }));
+  document.querySelectorAll('.menu > .title').forEach(t => t.addEventListener('mouseenter', () => {
+    if (document.querySelector('.menu.open') && !t.parentElement.classList.contains('open')) { closeMenus(); t.parentElement.classList.add('open'); }
+  }));
+  window.addEventListener('click', closeMenus);
+  document.querySelectorAll('#tabs .tab').forEach(t => t.addEventListener('click', () => showTab(t.dataset.tab)));
+
   $('method').onchange = e => setMethod(e.target.value);
   $('optSpeed').onchange = e => { opts.turn = +e.target.value; document.documentElement.style.setProperty('--turn', opts.turn + 'ms'); };
   $('optGap').onchange = e => { opts.gap = +e.target.value; };
-  $('optDim').onchange = e => { opts.dim = e.target.checked; applyHighlight(); };
-  $('optState').onchange = e => { $('stateSection').hidden = !e.target.checked; };
-  $('btnView').onclick = () => { orbit = { ...HOME_ORBIT }; applyOrbit(); };
-  $('btnPlaySolution').onclick = playSolution; $('btnPlanSolution').onclick = planSolution;
-  $('btnStep').onclick = step; $('btnPlay').onclick = play; $('btnAll').onclick = applyAll; $('btnClear').onclick = () => setPlan([], '');
-  $('btnScramble').onclick = scramble; $('btnReset').onclick = reset; $('btnUndo').onclick = undo;
-  $('btnSet').onclick = applyEdits; $('btnRevert').onclick = () => { renderState(); note('setMsg', ''); };
+  $('optDim').onchange = e => setDim(e.target.checked);
+  $('optState').onchange = e => setStatePanel(e.target.checked);
+  $('btnSet').onclick = applyEdits; $('btnRevert').onclick = () => { renderState(); $('setMsg').textContent = ''; };
+  $('logClear').onclick = () => { $('log').innerHTML = ''; };
+
+  const cmd = $('cmd');
+  cmd.addEventListener('keydown', e => {
+    e.stopPropagation();
+    if (e.key === 'Enter') { const v = cmd.value; if (v.trim()) { history.push(v); histPos = history.length; } cmd.value = ''; runCommand(v); }
+    else if (e.key === 'ArrowUp') { if (histPos > 0) { histPos--; cmd.value = history[histPos]; } e.preventDefault(); }
+    else if (e.key === 'ArrowDown') { if (histPos < history.length) { histPos++; cmd.value = history[histPos] || ''; } e.preventDefault(); }
+  });
 
   const vp = $('viewport'); let drag = null;
-  vp.addEventListener('mousedown', e => { if (e.target.closest('button')) return; drag = { x: e.clientX, y: e.clientY, ox: orbit.x, oy: orbit.y }; });
+  vp.addEventListener('mousedown', e => { drag = { x: e.clientX, y: e.clientY, ox: orbit.x, oy: orbit.y }; });
   window.addEventListener('mousemove', e => { if (!drag) return; orbit.y = drag.oy + (e.clientX - drag.x) * .4; orbit.x = Math.max(-90, Math.min(90, drag.ox - (e.clientY - drag.y) * .4)); applyOrbit(); });
   window.addEventListener('mouseup', () => drag = null);
   vp.addEventListener('touchstart', e => { const t = e.touches[0]; drag = { x: t.clientX, y: t.clientY, ox: orbit.x, oy: orbit.y }; }, { passive: true });
@@ -626,14 +837,16 @@ function wireUI() {
     else if ('xyz'.includes(k) && k) { applyTokens([k + (e.shiftKey ? "'" : '')]); e.preventDefault(); }
     else if (e.key === 'Backspace') { undo(); e.preventDefault(); }
     else if (e.key === ' ') { step(); e.preventDefault(); }
-    else if (e.key === 'Escape') { setPlan([], ''); }
+    else if (e.key === 'Escape') { setPlan([], ''); closeMenus(); }
   });
 }
+function closeMenus() { document.querySelectorAll('.menu.open').forEach(m => m.classList.remove('open')); }
 
 (async () => {
   buildCube(); wireUI();
-  if (START_METHOD === 'kociemba') { method = 'kociemba'; $('method').value = 'kociemba'; }
+  if (QS.get('method') === 'kociemba') { method = 'kociemba'; $('method').value = 'kociemba'; }
   snap = await api('state'); render(); renderPlan();
+  log('CubeAlgos simulator ready. Type help for commands.');
 })();
 </script>
 </body>
