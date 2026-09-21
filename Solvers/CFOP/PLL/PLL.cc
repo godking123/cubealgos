@@ -21,8 +21,6 @@ bool isSolved(const CubeState& s) {
 }
 
 // The case an alg solves is the alg undone on a solved cube
-// Deriving keys this way means a typo in an alg shows up as a missing case, not a
-// wrong answer. Shortest sequence wins when two land on the same key
 static void insert(const std::vector<Move>& seq) {
     CubeState s = CubeState::solved();
     for (int i = seq.size() - 1; i >= 0; i--) s = s.apply(inverseMove(seq[i]));
@@ -32,9 +30,7 @@ static void insert(const std::vector<Move>& seq) {
 }
 
 // A PLL needs a U turn before the alg to line the case up and one after to line the
-// layer up, so both are baked into the table. 21 cases times sixteen AUF pairs
-// collapse onto the 288 permutations, the bare AUFs cover a layer that only needs
-// turning
+// layer up, so both are baked into the table.
 void buildTables() {
     static const std::vector<std::vector<Move>> AUF = {
         {}, {Move::U}, {Move::U2}, {Move::Up}

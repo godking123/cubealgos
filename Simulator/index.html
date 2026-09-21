@@ -1,0 +1,935 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CubeAlgos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #000; --paper: #fff; --grey: #6b6b6b; --faint: #c8c8c8; --rule: 1px solid #000; --bar: 2px solid #000;
+    --white: #ffffff; --red: #d7263d; --green: #22a04a; --yellow: #f7c600; --orange: #f57a1f; --blue: #1e56d0;
+    --mono: "Space Mono", ui-monospace, Menlo, Consolas, monospace;
+    /* Face patterns, one per colour in URFDLB colour order: white yellow green blue red orange */
+    --p-white: none;
+    --p-yellow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='6'%3E%3Crect x='2' y='2' width='2' height='2'/%3E%3C/svg%3E");
+    --p-green: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='6'%3E%3Cpath d='M0 6L6 0M-1 1L1 -1M5 7L7 5' stroke='%23000' stroke-width='1.6'/%3E%3C/svg%3E");
+    --p-blue: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2' height='2'%3E%3Crect width='2' height='2'/%3E%3C/svg%3E");
+    --p-red: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='2' height='2'/%3E%3Crect x='2' y='2' width='2' height='2'/%3E%3C/svg%3E");
+    --p-orange: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='6'%3E%3Crect y='2' width='6' height='2'/%3E%3C/svg%3E");
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 13px/1.5 var(--mono); text-transform: uppercase; letter-spacing: .02em; overflow: hidden; }
+  button, select, input { font: inherit; color: inherit; letter-spacing: inherit; text-transform: inherit; }
+  button { cursor: pointer; background: var(--paper); border: var(--rule); padding: 4px 10px; }
+  button:hover { background: var(--ink); color: var(--paper); }
+  button:disabled { opacity: .35; pointer-events: none; }
+  ::selection { background: var(--ink); color: var(--paper); }
+  #app { display: grid; grid-template-rows: auto auto minmax(0, 1fr); grid-template-columns: minmax(0, 1fr); height: 100%; padding: 8px; }
+
+  /* Frame */
+  #top { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; height: 44px; padding: 0 16px; border: var(--bar); border-bottom: 0; }
+  #top .title { font-weight: 700; text-align: center; letter-spacing: .12em; }
+  #top .r { text-align: right; }
+  #scrambleBar { display: flex; align-items: baseline; gap: 16px; padding: 8px 16px; border: var(--bar); border-bottom: 0; min-width: 0; }
+  #scrambleBar .lbl { margin: 0; white-space: nowrap; }
+  #scrambleTokens { text-transform: none; font-weight: 700; font-size: 15px; letter-spacing: .04em; overflow-x: auto; white-space: nowrap; }
+  #scrambleTokens .tok.done { color: var(--faint); }
+  #scrambleTokens .n { color: var(--grey); font-weight: 400; margin-left: 12px; }
+  #main { display: grid; grid-template-columns: 300px minmax(0, 1fr) 300px; border: var(--bar); min-height: 0; }
+  @media (max-width: 1100px) { #main { grid-template-columns: 240px minmax(0, 1fr) 240px; } }
+  @media (max-width: 860px) { #main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(340px, 50vh) auto auto; } #left { order: 3; } #right { order: 2; } }
+  aside { padding: 18px 16px; overflow: auto; min-height: 0; display: flex; flex-direction: column; gap: 0; }
+  #left { border-right: var(--bar); }
+  #right { border-left: var(--bar); }
+  @media (max-width: 860px) { #left, #right { border: 0; border-top: var(--bar); } }
+  .blk { padding: 12px 0; border-bottom: var(--rule); }
+  .blk:last-child { border-bottom: 0; }
+  .blk.grow { flex: 1 1 0; min-height: 140px; overflow: auto; }
+  .lbl { color: var(--grey); font-size: 12px; letter-spacing: .1em; margin-bottom: 4px; }
+  .val { font-weight: 700; }
+  .val.big { font-size: 15px; padding-left: 18px; }
+  #stHold { text-transform: none; }
+  .val.huge { font-size: 40px; line-height: 1; letter-spacing: -.02em; }
+  .val.huge small { font-size: 16px; color: var(--grey); letter-spacing: 0; }
+  #stNext { text-transform: none; }
+  #stNext.rot { color: var(--grey); }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .ctl button { flex: 1; padding: 6px 0; font-weight: 700; }
+  select { background: var(--paper); border: var(--rule); padding: 3px 6px; appearance: none; -webkit-appearance: none; }
+  input[type=text] { background: var(--paper); border: var(--rule); padding: 3px 8px; width: 100%; text-transform: none; outline: none; }
+  input[type=text]:focus { box-shadow: inset 0 0 0 1px var(--ink); }
+  .slider { position: relative; padding: 8px 0 18px; }
+  .slider input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 22px; margin: 0; background: transparent; outline: none; cursor: pointer; display: block; }
+  .slider input[type=range]::-webkit-slider-runnable-track { height: 6px; border: var(--rule); background: var(--paper); }
+  .slider input[type=range]::-moz-range-track { height: 6px; border: var(--rule); background: var(--paper); box-sizing: border-box; }
+  .slider input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 22px; margin-top: -9px; background: var(--ink); border: 2px solid var(--paper); box-shadow: 0 0 0 1px var(--ink); }
+  .slider input[type=range]::-moz-range-thumb { width: 14px; height: 22px; background: var(--ink); border: 2px solid var(--paper); border-radius: 0; box-shadow: 0 0 0 1px var(--ink); }
+  .slider .ticks { display: flex; justify-content: space-between; font-size: 10px; color: var(--grey); letter-spacing: .06em; margin-top: 4px; padding: 0 2px; }
+  .slider .ticks span::before { content: ""; display: block; width: 1px; height: 4px; background: var(--grey); margin: 0 auto 2px; }
+  .tempo-read { display: flex; justify-content: space-between; font-weight: 700; }
+  .tempo-read span { color: var(--grey); font-weight: 400; text-transform: none; }
+  .tg::before { content: "[ ] "; } .tg.on::before { content: "[x] "; }
+  .tg { border: 0; padding: 2px 0; text-align: left; }
+  .tg:hover { background: none; color: var(--ink); text-decoration: underline; }
+
+  /* Face key */
+  .key { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .key div { text-align: center; font-size: 11px; color: var(--grey); }
+  .key i { display: block; height: 22px; border: var(--rule); margin-bottom: 3px; background-color: #fff; background-image: var(--p); image-rendering: pixelated; }
+  body.rgb .key i { background-image: none; background-color: var(--c); }
+
+  /* Keypad */
+  .keys { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; text-transform: none; }
+  .keys button { padding: 3px 0; font-weight: 700; }
+  .keys.rot { grid-template-columns: repeat(3, 1fr); width: 50%; margin-top: 4px; }
+
+  /* Log */
+  #log { font-size: 12px; text-transform: none; color: var(--grey); overflow: auto; flex: 1; min-height: 80px; }
+  #log div { white-space: pre-wrap; word-break: break-word; }
+  #log div::before { content: "> "; }
+  #log .ok { color: var(--ink); }
+  #log .err { color: var(--ink); font-weight: 700; }
+
+  /* Viewport */
+  #viewport { position: relative; overflow: hidden; display: grid; place-items: center; cursor: grab; user-select: none; min-width: 0; background-color: var(--paper);
+    background-image: linear-gradient(rgba(0,0,0,.07) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,.07) 1px, transparent 1px); background-size: 48px 48px; background-position: center; }
+  #viewport:active { cursor: grabbing; }
+  .scene { width: 300px; height: 300px; perspective: 1500px; position: relative; transform-origin: 50% 50%; }
+  .cube { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; }
+  .cubie { position: absolute; width: 60px; height: 60px; left: 120px; top: 120px; transform-style: preserve-3d; }
+
+  /* Ink body, flat tiles: no directional shading, so a colour is the same from every angle */
+  .face { position: absolute; inset: 0; background: var(--ink); backface-visibility: hidden; }
+  .face.sticker::before { content: ""; position: absolute; inset: 0; border: 2px solid var(--ink); border-radius: 2px;
+    background-color: #fff; background-image: var(--p); image-rendering: pixelated; }
+  body.rgb .face.sticker::before { background-image: none; background-color: var(--c); }
+  /* Modern body: white plastic, rounded glossy tiles, no ink lines. The gloss is a
+     soft highlight in the tile's own frame, mild enough to read the same at any angle */
+  body.modern .face { background: #f6f7f9; }
+  body.modern .face.sticker::before { inset: 2.5px; border: 0; border-radius: 20%; image-rendering: auto;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.55), inset 0 -2px 5px rgba(0,0,0,.10), inset 0 0 0 1px rgba(0,0,0,.06); }
+  body.modern.rgb .face.sticker::before { background-image: linear-gradient(160deg, rgba(255,255,255,.34) 0%, rgba(255,255,255,.08) 45%, rgba(0,0,0,.05) 100%); }
+  body.modern.rgb .cubie.dim .face.sticker::before { background-image: linear-gradient(160deg, rgba(255,255,255,.34), rgba(255,255,255,0) 60%); }
+  body.modern .cubie.picked .face.sticker::before { box-shadow: inset 0 0 0 2px #000; }
+  .cubie.dim .face.sticker::before { background-image: none; background-color: #fff; border-color: #bbb; }
+  body.rgb .cubie.dim .face.sticker::before { background-color: color-mix(in srgb, var(--c) 22%, #fff); }
+  .cubie.picked .face.sticker::before { border-color: #fff; box-shadow: inset 0 0 0 2px #000; }
+  .face { --z: 30px; --s: 1; }
+  .face.f { transform: translateZ(var(--z)) scale(var(--s)); } .face.b { transform: rotateY(180deg) translateZ(var(--z)) scale(var(--s)); }
+  .face.r { transform: rotateY(90deg) translateZ(var(--z)) scale(var(--s)); } .face.l { transform: rotateY(-90deg) translateZ(var(--z)) scale(var(--s)); }
+  .face.u { transform: rotateX(90deg) translateZ(var(--z)) scale(var(--s)); } .face.d { transform: rotateX(-90deg) translateZ(var(--z)) scale(var(--s)); }
+  /* Internal faces sit inside the body: sharing an edge with a tile makes Chrome's 3D
+     sort draw them over it at grazing angles */
+  .face:not(.sticker) { --z: 30px; --s: .95; }
+
+  #prompt { position: absolute; left: 50%; top: 82%; transform: translate(-50%, -50%); padding: 12px 26px; border: var(--bar); background: var(--paper); font-weight: 700; font-size: 20px; letter-spacing: .06em; white-space: nowrap; pointer-events: none; }
+  #prompt[hidden] { display: none; }
+  #pickMsg { position: absolute; left: 12px; bottom: 12px; padding: 4px 8px; border: var(--rule); background: var(--paper); font-size: 11px; text-transform: none; }
+  #pickMsg[hidden] { display: none; }
+  #viewTag { position: absolute; left: 12px; top: 12px; display: flex; gap: 18px; padding: 8px 12px; border: var(--bar); background: var(--paper); font-weight: 700; font-size: 14px; pointer-events: none; }
+  #viewTag .sw { display: inline-block; width: 14px; height: 14px; border: 1.5px solid var(--ink); vertical-align: -2px; margin: 0 6px 0 4px; background: var(--c); }
+  #viewTag .lbl { display: inline; margin: 0; }
+  #viewTag .away { color: var(--grey); font-weight: 400; }
+
+  /* Sequence */
+  #seq { text-transform: none; font-size: 13px; line-height: 1.7; }
+  #seq .g { margin-bottom: 8px; }
+  #seq .gl { text-transform: uppercase; color: var(--grey); font-size: 11px; letter-spacing: .08em; }
+  #seq .g.done .gl { text-decoration: line-through; }
+  #seq .g.cur .gl { color: var(--ink); font-weight: 700; }
+  .tok { display: inline-block; padding: 0 4px; font-weight: 700; }
+  .tok.done { color: var(--faint); font-weight: 400; }
+  .tok.next { background: var(--ink); color: var(--paper); }
+  #seqEmpty { color: var(--faint); }
+  #inputCtl { border: var(--bar); padding: 12px; text-align: center; font-weight: 700; letter-spacing: .06em; }
+
+  table.state { border-collapse: collapse; width: 100%; text-transform: none; }
+  table.state th { text-align: left; font-size: 11px; color: var(--grey); font-weight: 400; width: 22px; }
+  table.state td { padding: 1px; }
+  table.state input { width: 100%; text-align: center; background: var(--paper); border: var(--rule); padding: 1px 0; font: 11px var(--mono); }
+  table.state input.home { background: #eee; }
+  table.state input.hover { background: var(--ink); color: var(--paper); }
+  table.state .slots td { text-align: center; font-size: 9px; color: var(--grey); }
+  details summary { cursor: pointer; color: var(--grey); font-size: 12px; letter-spacing: .1em; list-style: none; }
+  details summary::before { content: "+ "; } details[open] summary::before { content: "- "; }
+  .msg { font-size: 11px; color: var(--grey); margin-top: 4px; text-transform: none; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="top">
+    <span>OP_ID: <span id="opId">CUBE_0X3</span></span>
+    <span class="title">CUBEALGOS // SIMULATOR</span>
+    <span class="r" id="sys">SYS: BOOTING</span>
+  </header>
+  <div id="scrambleBar"><span class="lbl">Scramble</span><span id="scrambleTokens">---</span></div>
+
+  <main id="main">
+    <aside id="left">
+      <div class="blk">
+        <div class="lbl">Status</div>
+        <div class="val big" id="stStatus">Booting</div>
+      </div>
+      <div class="blk">
+        <div class="lbl">Hold</div>
+        <div class="val" id="stHold">---</div>
+      </div>
+      <div class="blk">
+        <div class="lbl">Method</div>
+        <select id="method"><option value="cfop">CFOP</option><option value="kociemba">Kociemba</option></select>
+      </div>
+      <div class="blk">
+        <div class="lbl">Tempo</div>
+        <div class="tempo-read"><b id="tempoName">Normal</b><span id="tempoMs">220 ms / move</span></div>
+        <div class="slider">
+          <input type="range" id="tempoRange" min="0" max="100" step="1" value="50">
+          <div class="ticks"><span>Learn</span><span>Slow</span><span>Normal</span><span>Fast</span><span>Instant</span></div>
+        </div>
+      </div>
+      <div class="blk">
+        <div class="lbl">Face_key</div>
+        <div class="key" id="faceKey"></div>
+      </div>
+      <div class="blk">
+        <div class="lbl">Manual_input</div>
+        <div class="keys" id="moveGrid"></div>
+        <div class="keys rot" id="rotGrid"></div>
+        <input type="text" id="cmd" spellcheck="false" autocomplete="off" placeholder="R U R' U' / command" style="margin-top:6px">
+      </div>
+      <div class="blk grow"><div id="log"></div></div>
+    </aside>
+
+    <section id="viewport">
+      <div class="scene" id="scene"><div class="cube" id="cube"></div></div>
+      <div id="viewTag"></div>
+      <div id="prompt" hidden></div>
+      <div id="pickMsg" hidden></div>
+    </section>
+
+    <aside id="right">
+      <div class="blk">
+        <div class="lbl">Moves</div>
+        <div class="val huge" id="stMoves">000</div>
+      </div>
+      <div class="blk">
+        <div class="lbl">Next</div>
+        <div class="val huge" id="stNext">---</div>
+      </div>
+      <div class="blk">
+        <div class="lbl">Step</div>
+        <div class="val" id="stStep">---</div>
+      </div>
+      <div class="blk">
+        <div class="lbl">Solves</div>
+        <div class="val" id="stSolves">000</div>
+      </div>
+      <div class="blk grow">
+        <div class="lbl">Sequence</div>
+        <div id="seq"><span id="seqEmpty">---</span></div>
+      </div>
+      <div class="blk">
+        <div class="lbl">Options</div>
+        <button class="tg on" id="tgDim">Highlight step pieces</button><br>
+        <button class="tg on" id="tgCam">Auto camera</button><br>
+        <button class="tg on" id="tgIdle">Idle drift</button><br>
+        <button class="tg on" id="tgRgb">Colour faces</button><br>
+        <button class="tg" id="tgModern">Modern body</button>
+      </div>
+      <div class="blk">
+        <details>
+          <summary>State_arrays</summary>
+          <table class="state" id="stateTable"></table>
+          <div class="row" style="margin-top:6px"><button id="btnSet">Apply</button><button id="btnRevert">Revert</button><span class="msg" id="setMsg"></span></div>
+        </details>
+      </div>
+      <div class="blk">
+        <div class="lbl">Input control</div>
+        <div id="inputCtl">Spacebar // Scramble</div>
+        <div class="row ctl" style="margin-top:8px">
+          <button id="btnPrev" title="Left arrow">&larr; Prev</button>
+          <button id="btnNext" title="Right arrow">Next &rarr;</button>
+          <button id="btnPlay">Play</button>
+          <button id="btnAll" title="Apply the rest at once">All</button>
+        </div>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<script>
+// Slot geometry mirrors CubeState: corners URF UFL ULB UBR DFR DLF DBL DRB,
+// edges UR UF UL UB DR DF DL DB FR FL BL BR
+const CORNER_POS = [[1,1,1],[-1,1,1],[-1,1,-1],[1,1,-1],[1,-1,1],[-1,-1,1],[-1,-1,-1],[1,-1,-1]];
+const EDGE_POS   = [[1,1,0],[0,1,1],[-1,1,0],[0,1,-1],[1,-1,0],[0,-1,1],[-1,-1,0],[0,-1,-1],[1,0,1],[-1,0,1],[-1,0,-1],[1,0,-1]];
+const CORNER_FACES = [[0,1,2],[0,2,4],[0,4,5],[0,5,1],[3,2,1],[3,4,2],[3,5,4],[3,1,5]];
+const EDGE_FACES   = [[0,1],[0,2],[0,4],[0,5],[3,1],[3,2],[3,4],[3,5],[2,1],[2,4],[5,4],[5,1]];
+const CORNER_NAMES = ['URF','UFL','ULB','UBR','DFR','DLF','DBL','DRB'];
+const EDGE_NAMES   = ['UR','UF','UL','UB','DR','DF','DL','DB','FR','FL','BL','BR'];
+const FACE_CLASS   = ['u','r','f','d','l','b'];
+const FACE_LETTER  = 'URFDLB';
+const COLOR_NAMES  = ['white','red','green','yellow','orange','blue'];
+const COLOR_VARS   = COLOR_NAMES.map(c => `var(--${c})`);
+const PATTERN_VARS = COLOR_NAMES.map(c => `var(--p-${c})`);
+const AXIS_OF_FACE = { U:[1,'Y',-1], D:[1,'Y',1], R:[0,'X',1], L:[0,'X',-1], F:[2,'Z',1], B:[2,'Z',-1] };
+const ROT_FACE     = { x: 'R', y: 'U', z: 'F' };
+const GAP = 60;  // Cubies Touch, Tile Borders Draw the Lines
+const HOME_ORBIT = { x: -28, y: -38 };
+// The camera stays front-centric: F, R and U are in view from home, and a hidden
+// face only gets a lean that keeps the front in front while its layer shows
+const PEEK_OF_FACE = { L: { x: -28, y: 24 }, B: { x: -56, y: -38 }, D: { x: 14, y: -38 } };
+const MOVE_RE = /^([URFDLB](2|')?|[xyz](2|')?)$/;
+// Tempo 0 to 100: turn time falls from 900ms to nothing, the pause between moves
+// with it; the names are the bands the slider's ticks mark
+const TEMPO_NAMES = ['Learn', 'Slow', 'Normal', 'Fast', 'Instant'];
+function tempoOf(v) {
+  const k = Math.pow(1 - v / 100, 1.7);
+  return { turn: Math.round(900 * k), gap: Math.round(1100 * k), name: v >= 100 ? 'Instant' : TEMPO_NAMES[Math.min(3, Math.floor(v / 25))] };
+}
+const SCRAMBLE_TEMPO = { turn: 110, gap: 20 };
+
+const $ = id => document.getElementById(id);
+const api = async (cmd, params = {}) => {
+  const q = new URLSearchParams({ cmd, ...params });
+  return (await fetch('/api?' + q.toString())).json();
+};
+const QS = new URLSearchParams(location.search);
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
+const pad3 = n => String(n).padStart(3, '0');
+const ease = t => t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
+
+let snap = null, cubies = [], picked = null;
+let method = 'cfop', opts = { turn: 220, gap: 160, dim: true, cam: true, idle: true };
+let plan = null, playing = false, busy = false, solves = 0, zoom = 1;
+let scrambleMoves = [], scramblePos = 0;
+let orbit = { ...HOME_ORBIT };
+if (QS.get('orbit')) { const [x, y] = QS.get('orbit').split(',').map(Number); orbit = { x, y }; }
+const cmdHistory = [];
+let histPos = 0;
+
+function log(text, cls) {
+  const d = document.createElement('div');
+  if (cls) d.className = cls;
+  d.textContent = text;
+  $('log').appendChild(d);
+  $('log').scrollTop = $('log').scrollHeight;
+}
+function status(text) { $('stStatus').textContent = text; }
+
+// A face's normal in the cubie's frame, through the orbit, tells whether that face
+// is turned toward the camera
+const NORMALS = [[0,-1,0],[1,0,0],[0,0,1],[0,1,0],[-1,0,0],[0,0,-1]];
+const RAD = Math.PI / 180;
+const rotX = (v, a) => { const c = Math.cos(a), s = Math.sin(a); return [v[0], v[1]*c - v[2]*s, v[1]*s + v[2]*c]; };
+const rotY = (v, a) => { const c = Math.cos(a), s = Math.sin(a); return [v[0]*c + v[2]*s, v[1], -v[0]*s + v[2]*c]; };
+const toWorld = v => rotX(rotY(v, orbit.y * RAD), orbit.x * RAD);
+function faceVisible(letter) { return toWorld(NORMALS[FACE_LETTER.indexOf(letter)])[2] > 0.3; }
+
+function buildCube() {
+  const cube = $('cube');
+  const make = (kind, idx, pos) => {
+    const el = document.createElement('div');
+    el.className = 'cubie';
+    el.dataset.kind = kind; el.dataset.idx = idx;
+    el.pos = pos; el.faces = [];
+    for (const f of FACE_CLASS) { const d = document.createElement('div'); d.className = 'face ' + f; el.appendChild(d); el.faces.push(d); }
+    el.addEventListener('click', e => { e.stopPropagation(); if (!cam.moved) pick(kind, idx); });
+    cube.appendChild(el);
+    return el;
+  };
+  CORNER_POS.forEach((p, i) => cubies.push(make('c', i, p)));
+  EDGE_POS.forEach((p, i) => cubies.push(make('e', i, p)));
+  [[0,1,0],[1,0,0],[0,0,1],[0,-1,0],[-1,0,0],[0,0,-1]].forEach((p, i) => cubies.push(make('m', i, p)));
+  placeAll();
+  applyOrbit();
+}
+
+function baseTransform(pos) { return `translate3d(${pos[0]*GAP}px, ${-pos[1]*GAP}px, ${pos[2]*GAP}px)`; }
+function placeAll() { for (const el of cubies) el.style.transform = baseTransform(el.pos); }
+let lastOrbit = '';
+function applyOrbit() {
+  const key = orbit.x.toFixed(2) + ',' + orbit.y.toFixed(2);
+  if (key === lastOrbit) return;
+  lastOrbit = key;
+  $('cube').style.transform = `rotateX(${orbit.x}deg) rotateY(${orbit.y}deg)`;
+  renderViewTag();
+}
+function fitScene() {
+  const vp = $('viewport'), w = vp.clientWidth, h = vp.clientHeight;
+  zoom = Math.max(.6, Math.min(2.6, Math.min(w, h * .82) / 380));
+  $('scene').style.transform = `scale(${zoom})`;
+}
+
+// Camera
+//
+// One loop owns the orbit: a drag sets it directly and leaves a velocity behind,
+// which decays into a stop; a target, set when the next move's face is hidden,
+// eases the view round the short way; and after a while untouched the cube drifts
+// and bobs on its own until something happens
+const cam = { vx: 0, vy: 0, target: null, drag: null, moved: false, lastInput: 0, bob: 0 };
+const wrap = a => ((a + 540) % 360) - 180;
+const clampX = x => Math.max(-88, Math.min(88, x));
+function camLoop(now) {
+  if (!cam.drag) {
+    if (cam.target) {
+      const dx = (cam.target.x ?? orbit.x) - orbit.x, dy = wrap((cam.target.y ?? orbit.y) - orbit.y);
+      orbit.x += dx * .045; orbit.y += dy * .045;
+      if (Math.abs(dx) < .5 && Math.abs(dy) < .5) cam.target = null;
+    } else {
+      orbit.y += cam.vy; orbit.x = clampX(orbit.x + cam.vx);
+      cam.vx *= .94; cam.vy *= .94;
+      if (Math.abs(cam.vx) < .03) cam.vx = 0;
+      if (Math.abs(cam.vy) < .03) cam.vy = 0;
+      const idle = opts.idle && !playing && !busy && now - cam.lastInput > 2500;
+      if (idle) {
+        orbit.y += .05;
+        orbit.x += (Math.sin(now / 3100) * 8 - 24 - orbit.x) * .004;
+        cam.bob += (Math.sin(now / 1500) * 7 - cam.bob) * .05;
+      } else cam.bob *= .95;
+      $('scene').style.transform = `scale(${zoom}) translateY(${cam.bob.toFixed(2)}px)`;
+    }
+    orbit.y = wrap(orbit.y);
+    applyOrbit();
+  }
+  requestAnimationFrame(camLoop);
+}
+function nearOrbit(t) { return Math.abs(t.x - orbit.x) < 4 && Math.abs(wrap(t.y - orbit.y)) < 4; }
+function waitCam(ms) {
+  return new Promise(res => {
+    const t0 = performance.now();
+    const tick = () => (!cam.target || performance.now() - t0 > ms) ? res() : requestAnimationFrame(tick);
+    tick();
+  });
+}
+
+function paint(el, colorsByFace) {
+  el.faces.forEach((f, i) => {
+    const c = colorsByFace[i];
+    f.style.setProperty('--c', c == null ? 'var(--ink)' : COLOR_VARS[c]);
+    f.style.setProperty('--p', c == null ? 'none' : PATTERN_VARS[c]);
+    f.classList.toggle('sticker', c != null);
+  });
+}
+
+function render() {
+  if (!snap) return;
+  for (const el of cubies) {
+    const by = [null, null, null, null, null, null];
+    if (el.dataset.kind === 'c') CORNER_FACES[+el.dataset.idx].forEach((f, k) => by[f] = snap.corners[+el.dataset.idx][k]);
+    else if (el.dataset.kind === 'e') EDGE_FACES[+el.dataset.idx].forEach((f, k) => by[f] = snap.edges[+el.dataset.idx][k]);
+    else by[+el.dataset.idx] = snap.faces[+el.dataset.idx];
+    paint(el, by);
+  }
+  renderReadouts();
+  renderSeq();
+  applyHighlight();
+  renderState();
+}
+
+function stageOf(s) {
+  if (s.solved) return 'done';
+  if (!s.cross) return 'cross';
+  if (!s.f2l) return 'f2l';
+  if (!s.oll) return 'oll';
+  return 'pll';
+}
+const STAGE_NAMES = { cross: 'Cross', f2l: 'F2L', oll: 'OLL', pll: 'PLL', done: 'Solved' };
+// While a sequence is loaded the stage is the group being followed, since a pair
+// algorithm can break the cross for a few moves and the live state would flip back
+function currentStage() {
+  if (plan) {
+    const l = groupAt(plan.pos).g.label.toLowerCase();
+    const st = l.includes('cross') ? 'cross' : l.includes('pair') ? 'f2l' : l.includes('oll') ? 'oll' : l.includes('pll') ? 'pll' : null;
+    if (st) return st;
+  }
+  return stageOf(snap);
+}
+
+function renderScramble() {
+  const box = $('scrambleTokens');
+  if (!scrambleMoves.length) { box.textContent = '---'; return; }
+  const playing = scramblePos < scrambleMoves.length;
+  box.innerHTML = scrambleMoves.map((t, i) => `<span class="tok${playing && i < scramblePos ? ' done' : ''}">${t}</span>`).join('')
+    + `<span class="n">${scrambleMoves.length} moves</span>`;
+}
+// Which colour is in front and on top right now, and whether the front face is
+// actually turned toward the camera
+function renderViewTag() {
+  if (!snap) return;
+  const sw = c => `<i class="sw" style="--c:${COLOR_VARS[c]}"></i>`;
+  const html = `<span><span class="lbl">Front</span>${sw(snap.faces[2])}${COLOR_NAMES[snap.faces[2]]}</span>`
+    + `<span><span class="lbl">Up</span>${sw(snap.faces[0])}${COLOR_NAMES[snap.faces[0]]}</span>`
+    + (faceVisible('F') ? '' : '<span class="away">front face turned away</span>');
+  const el = $('viewTag');
+  if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; }
+}
+
+function renderReadouts() {
+  const cur = currentStage();
+  renderViewTag();
+  $('stHold').textContent = `U=${COLOR_NAMES[snap.faces[0]].toUpperCase()} F=${COLOR_NAMES[snap.faces[2]].toUpperCase()}` + (snap.hold ? ` (${snap.hold})` : '');
+  $('stStep').textContent = method === 'cfop' ? (cur === 'f2l' ? `F2L ${snap.pairs.filter(Boolean).length}/4` : STAGE_NAMES[cur]) : (snap.solved ? 'Solved' : '---');
+  $('stMoves').innerHTML = plan ? `${pad3(plan.pos)}<small>/${pad3(plan.total)}</small>` : pad3(0);
+  const nt = nextToken();
+  $('stNext').textContent = nt || '---'; $('stNext').classList.toggle('rot', !!nt && 'xyz'.includes(nt[0]));
+  $('stSolves').textContent = pad3(solves);
+  const mode = playing ? 'Pause' : plan ? (plan.pos ? 'Resume' : 'Play') : snap.solved ? 'Scramble' : 'Load sequence';
+  $('inputCtl').textContent = `Spacebar // ${mode}`;
+  $('btnPrev').disabled = !plan || playing || plan.pos === 0;
+  $('btnNext').disabled = !plan || playing;
+  $('btnPlay').disabled = !plan; $('btnPlay').textContent = playing ? 'Pause' : 'Play';
+  $('btnAll').disabled = !plan || playing;
+  const p = $('prompt');
+  p.hidden = busy || playing || (plan && plan.pos > 0);
+  p.textContent = plan ? 'Play [space] // Step [→]' : snap.solved ? 'Initialize [space]' : 'Solve [space]';
+  if (!busy && !playing) status(plan ? (plan.pos ? 'Paused' : 'Sequence loaded') : snap.solved ? 'Awaiting impulse' : 'Scrambled');
+}
+
+// The sequence is bare notation: group labels and tokens, the next one inverted
+function renderSeq() {
+  const box = $('seq');
+  if (!plan) { box.innerHTML = '<span id="seqEmpty">---</span>'; return; }
+  let html = '', n = 0;
+  plan.groups.forEach((g, gi) => {
+    const state = plan.pos >= n + g.tokens.length ? 'done' : plan.pos >= n ? 'cur' : 'todo';
+    html += `<div class="g ${state}"><div class="gl">${pad3(gi + 1).slice(1)} ${g.label}</div>`;
+    g.tokens.forEach((t, j) => { html += `<span class="tok${n + j < plan.pos ? ' done' : n + j === plan.pos ? ' next' : ''}">${t}</span>`; });
+    html += '</div>';
+    n += g.tokens.length;
+  });
+  box.innerHTML = html;
+  const cur = box.querySelector('.tok.next');
+  if (cur) cur.scrollIntoView({ block: 'nearest' });
+}
+
+// Only while a solution is being followed, and only the pieces its current step moves
+function stagePieces() {
+  const set = new Set();
+  if (method !== 'cfop' || !following()) return set;
+  const cur = currentStage();
+  const add = (kind, piece) => set.add(kind + piece);
+  if (cur === 'cross') [4,5,6,7].forEach(p => add('e', p));
+  if (cur === 'f2l') {
+    [4,5,6,7].forEach(p => add('e', p));
+    const m = groupAt(plan.pos).g.label.match(/\b(DFR|DLF|DBL|DRB)\b/);
+    const slots = m ? [CORNER_NAMES.indexOf(m[1]) - 4] : [0,1,2,3].filter(k => !snap.pairs[k]);
+    for (const k of slots) { add('c', 4 + k); add('e', 8 + k); }
+    for (const k of [0,1,2,3]) if (snap.pairs[k]) { add('c', 4 + k); add('e', 8 + k); }
+  }
+  if (cur === 'oll' || cur === 'pll') [0,1,2,3].forEach(k => { add('c', k); add('e', k); });
+  return set;
+}
+function applyHighlight() {
+  const set = opts.dim ? stagePieces() : new Set();
+  for (const el of cubies) {
+    let on = true;
+    if (set.size) {
+      if (el.dataset.kind === 'c') on = set.has('c' + snap.cp[+el.dataset.idx]);
+      else if (el.dataset.kind === 'e') on = set.has('e' + snap.ep[+el.dataset.idx]);
+    }
+    el.classList.toggle('dim', !on);
+    el.classList.toggle('picked', picked && picked.kind === el.dataset.kind && picked.idx === +el.dataset.idx);
+  }
+}
+
+function pick(kind, idx) {
+  picked = (picked && picked.kind === kind && picked.idx === idx) ? null : { kind, idx };
+  const msg = $('pickMsg');
+  msg.hidden = !picked;
+  if (picked) {
+    if (kind === 'c') {
+      const piece = snap.cp[idx], tw = snap.co[idx];
+      msg.textContent = `cp[${idx}] ${CORNER_NAMES[idx]} <- ${CORNER_NAMES[piece]} twist ${tw}`;
+    } else if (kind === 'e') {
+      const piece = snap.ep[idx], fl = snap.eo[idx];
+      msg.textContent = `ep[${idx}] ${EDGE_NAMES[idx]} <- ${EDGE_NAMES[piece]} flip ${fl}`;
+    } else msg.textContent = `centre ${FACE_LETTER[idx]} ${COLOR_NAMES[snap.faces[idx]]}`;
+  }
+  applyHighlight(); renderState();
+}
+
+function renderState() {
+  const t = $('stateTable');
+  const rows = [['cp', 8, CORNER_NAMES], ['co', 8, CORNER_NAMES], ['ep', 12, EDGE_NAMES], ['eo', 12, EDGE_NAMES]];
+  if (!t.dataset.built) {
+    let html = '';
+    for (const [key, n, names] of rows) {
+      if (key === 'cp' || key === 'ep') html += '<tr class="slots"><th></th>' + names.map(nm => `<td>${nm}</td>`).join('') + '</tr>';
+      html += `<tr><th>${key}</th>` + Array.from({ length: n }, (_, i) => `<td><input data-key="${key}" data-i="${i}" maxlength="2"></td>`).join('') + '</tr>';
+    }
+    t.innerHTML = html; t.dataset.built = 1;
+    t.querySelectorAll('input').forEach(inp => {
+      const kind = inp.dataset.key[0] === 'c' ? 'c' : 'e', idx = +inp.dataset.i;
+      inp.addEventListener('mouseenter', () => hoverCubie(kind, idx, true));
+      inp.addEventListener('mouseleave', () => hoverCubie(kind, idx, false));
+      inp.addEventListener('keydown', e => e.stopPropagation());
+    });
+  }
+  for (const [key, n] of rows) for (let i = 0; i < n; i++) {
+    const inp = t.querySelector(`input[data-key=${key}][data-i="${i}"]`);
+    if (document.activeElement !== inp) inp.value = snap[key][i];
+    const home = key[0] === 'c' ? (snap.cp[i] === i && snap.co[i] === 0) : (snap.ep[i] === i && snap.eo[i] === 0);
+    inp.classList.toggle('home', home);
+    inp.classList.toggle('hover', !!picked && picked.kind === key[0] && picked.idx === i);
+  }
+}
+function hoverCubie(kind, idx, on) {
+  for (const el of cubies) if (el.dataset.kind === kind && +el.dataset.idx === idx) el.classList.toggle('picked', on || (picked && picked.kind === kind && picked.idx === idx));
+  $('stateTable').querySelectorAll(`input[data-i="${idx}"]`).forEach(inp => { if (inp.dataset.key[0] === kind) inp.classList.toggle('hover', on); });
+}
+
+function turnSpec(tok) {
+  const isRot = 'xyz'.includes(tok[0]);
+  const face = isRot ? ROT_FACE[tok[0]] : tok[0];
+  const [axis, css, sign] = AXIS_OF_FACE[face];
+  const turns = tok.endsWith('2') ? 2 : 1, dir = tok.endsWith("'") ? -1 : 1;
+  const side = 'URF'.includes(face) ? 1 : -1;
+  const layer = cubies.filter(el => isRot || el.pos[axis] === side);
+  return { css, angle: 90 * turns * dir * sign, layer, turns };
+}
+function animateTurn(tok) {
+  if (opts.turn <= 0) return Promise.resolve();
+  const { css, angle, layer, turns } = turnSpec(tok);
+  const dur = opts.turn * (turns === 2 ? 1.5 : 1);
+  return new Promise(res => {
+    const t0 = performance.now();
+    const frame = now => {
+      const t = Math.min(1, (now - t0) / dur), a = angle * ease(t);
+      for (const el of layer) el.style.transform = `rotate${css}(${a}deg) ` + baseTransform(el.pos);
+      if (t < 1) requestAnimationFrame(frame); else res();
+    };
+    requestAnimationFrame(frame);
+  });
+}
+
+// Actions run one after another, so a burst of key presses or clicks lands every
+// move in order instead of dropping the ones that arrive mid-animation
+const queue = []; let pumping = false;
+function run(fn) {
+  if (queue.length > 16) return Promise.resolve();
+  return new Promise(res => { queue.push({ fn, res }); if (!pumping) pump(); });
+}
+async function pump() {
+  pumping = true;
+  while (queue.length) {
+    const { fn, res } = queue.shift();
+    try { await fn(); } catch (e) { log('error: ' + e.message, 'err'); }
+    res();
+  }
+  pumping = false;
+}
+
+// Moves made by hand invalidate a plan, since it was computed for the state before them
+async function applyTokens(tokens, { quiet = false, keepPlan = false, onEach = null } = {}) {
+  if (busy || !tokens.length) return false;
+  const bad = tokens.find(t => !MOVE_RE.test(t));
+  if (bad) { log('unknown move: ' + bad, 'err'); return false; }
+  busy = true;
+  try {
+    if (!keepPlan && plan) { plan = null; log('plan dropped: manual move'); }
+    if (opts.turn > 0) {
+      for (const t of tokens) {
+        const [res] = await Promise.all([api('apply', { seq: t }), animateTurn(t)]);
+        if (res.error) { log(res.error, 'err'); placeAll(); return false; }
+        snap = res; placeAll(); render();
+        if (onEach) onEach();
+      }
+    } else {
+      const res = await api('apply', { seq: tokens.join(' ') });
+      if (res.error) { log(res.error, 'err'); return false; }
+      snap = res; render();
+    }
+    if (!quiet) log(tokens.join(' '));
+    return true;
+  } finally { busy = false; }
+}
+
+function setPlan(groups) {
+  const gs = groups.filter(g => g.tokens.length);
+  plan = gs.length ? { groups: gs, pos: 0, total: gs.reduce((n, g) => n + g.tokens.length, 0) } : null;
+  render();
+}
+function planTokens() { return plan ? plan.groups.flatMap(g => g.tokens) : []; }
+function nextToken() { return plan && plan.pos < plan.total ? planTokens()[plan.pos] : null; }
+function groupAt(pos) {
+  let n = 0;
+  for (const g of plan.groups) { if (pos < n + g.tokens.length) return { g, i: pos - n }; n += g.tokens.length; }
+  return { g: plan.groups[plan.groups.length - 1], i: 0 };
+}
+async function step() {
+  const t = nextToken(); if (!t) return false;
+  if (opts.cam && !cam.drag) {
+    const face = 'xyz'.includes(t[0]) ? null : t[0];
+    const want = face && (PEEK_OF_FACE[face] || HOME_ORBIT);
+    if (want && !faceVisible(face) && !nearOrbit(want)) { cam.target = { ...want }; await waitCam(1200); }
+  }
+  if (!await applyTokens([t], { quiet: true, keepPlan: true })) return false;
+  if (!plan) return false;  // Cleared While the Move Was in Flight
+  plan.pos++;
+  if (plan.pos >= plan.total) { plan = null; if (snap.solved) { solves++; log('solved', 'ok'); } }
+  render();
+  return true;
+}
+async function back() {
+  if (busy || playing) return;
+  if (!plan) return undo();
+  if (plan.pos === 0) return;
+  const res = await api('undo');
+  if (!plan) return;
+  snap = res; plan.pos--; render();
+}
+async function play() {
+  if (playing) { playing = false; return; }
+  playing = true; status('Solving'); render();
+  while (playing && nextToken()) {
+    if (!await step()) break;
+    if (opts.gap && nextToken()) await new Promise(r => setTimeout(r, opts.gap));
+  }
+  playing = false; render();
+}
+async function applyAll() {
+  if (!plan) return;
+  const rest = planTokens().slice(plan.pos), saveTurn = opts.turn;
+  opts.turn = 0;
+  const ok = await applyTokens(rest, { quiet: true, keepPlan: true });
+  opts.turn = saveTurn;
+  if (ok) { plan = null; if (snap.solved) solves++; log('applied: ' + rest.join(' ')); render(); }
+}
+
+function fail(res) { if (res.error) { log(res.error, 'err'); return true; } return false; }
+function found(label, moves) {
+  setPlan([{ label, tokens: moves }]);
+  log(`${label}: ${moves.length ? moves.join(' ') : '(nothing)'}`, 'ok');
+}
+async function bestCross() {
+  const r = await api('bestcross'); if (fail(r)) return;
+  const rot = r.rotation ? r.rotation.split(' ') : [];
+  found(`${r.color} cross`, [...rot, ...r.moves]);
+}
+async function insertPair(slot) {
+  const r = await api('pair', { slot }); if (fail(r)) return;
+  found(`${CORNER_NAMES[4 + slot]} pair`, r.moves);
+}
+async function finishF2L() {
+  const r = await api('f2l'); if (fail(r)) return;
+  setPlan(r.pairs.map(p => ({ label: `${CORNER_NAMES[4 + p.slot]} pair`, tokens: p.moves })));
+  for (const p of r.pairs) log(`${CORNER_NAMES[4 + p.slot]} pair: ${p.moves.join(' ')}`, 'ok');
+}
+async function oll() { const r = await api('oll'); if (fail(r)) return; found('OLL', r.moves); }
+async function pll() { const r = await api('pll'); if (fail(r)) return; found('PLL', r.moves); }
+async function kociemba() {
+  status('Searching');
+  const r = await api('kociemba'); if (fail(r)) return;
+  found('Kociemba', r.moves);
+  return r.moves.length;
+}
+
+// Whole solve with the chosen method; CFOP folds the rotation into its first step
+async function planSolution() {
+  if (busy || playing) return false;
+  if (snap.solved) return false;
+  if (opts.cam && !faceVisible('F')) cam.target = { ...HOME_ORBIT };
+  if (method === 'kociemba') return (await kociemba()) != null;
+  status('Searching');
+  const r = await api('cfop'); if (fail(r)) return false;
+  const rot = r.rotation ? r.rotation.split(' ') : [];
+  setPlan(r.steps.map((s, i) => ({ label: s.label, tokens: i === 0 ? [...rot, ...s.moves] : s.moves })));
+  log(`cfop: ${plan ? plan.total : 0} moves`, 'ok');
+  for (const s of r.steps) log(`  ${s.label}: ${s.moves.length ? s.moves.join(' ') : '(done)'}`);
+  return true;
+}
+async function playSolution() {
+  if (busy || playing) return;
+  if (!await planSolution()) return;
+  await play();
+}
+
+// A scramble is fetched and then played out as real moves on a reset cube
+async function scramble() {
+  if (busy || playing) return;
+  status('Scrambling');
+  const r = await api('wca'); if (fail(r)) return;
+  snap = await api('reset'); plan = null;
+  scrambleMoves = r.moves; scramblePos = 0; renderScramble(); render();
+  log('scramble: ' + r.moves.join(' '), 'ok'); status('Scrambling');
+  const save = { turn: opts.turn, gap: opts.gap };
+  Object.assign(opts, opts.turn ? SCRAMBLE_TEMPO : { turn: 0, gap: 0 });
+  await applyTokens(r.moves, { quiet: true, onEach: () => { scramblePos++; renderScramble(); } });
+  Object.assign(opts, save);
+  scramblePos = scrambleMoves.length; renderScramble(); render();
+}
+async function reset() { if (busy || playing) return; snap = await api('reset'); plan = null; scrambleMoves = []; renderScramble(); render(); log('reset'); }
+async function undo() { if (busy || playing) return; plan = null; snap = await api('undo'); render(); }
+
+// Space: scramble a solved cube, load the sequence for a scrambled one, then play
+// or pause it; the arrows step through it one move at a time
+function impulse() {
+  if (playing) return play();
+  if (pumping) return;
+  run(() => plan ? play() : snap.solved ? scramble() : planSolution());
+}
+function following() { return !!plan && (playing || plan.pos > 0); }
+
+async function applyEdits() {
+  const vals = key => Array.from($('stateTable').querySelectorAll(`input[data-key=${key}]`)).map(i => i.value.trim()).join(',');
+  const r = await api('set', { cp: vals('cp'), co: vals('co'), ep: vals('ep'), eo: vals('eo') });
+  if (r.error) { $('setMsg').textContent = r.error; return; }
+  snap = r; plan = null; render(); $('setMsg').textContent = 'ok'; log('state edited');
+}
+
+function setMethod(m) { method = m; $('method').value = m; plan = null; render(); log('method: ' + m); }
+function setOpt(key, on) {
+  opts[key] = on; store.set(key, on ? '1' : '0');
+  const tg = { dim: 'tgDim', cam: 'tgCam', idle: 'tgIdle' }[key];
+  if (tg) $(tg).classList.toggle('on', on);
+  if (key === 'dim') applyHighlight();
+}
+function setModern(on) { document.body.classList.toggle('modern', on); $('tgModern').classList.toggle('on', on); store.set('modern', on ? '1' : '0'); }
+function setRgb(on) { document.body.classList.toggle('rgb', on); $('tgRgb').classList.toggle('on', on); store.set('rgb', on ? '1' : '0'); }
+function setTempo(v) {
+  v = Math.max(0, Math.min(100, Math.round(v)));
+  const t = tempoOf(v); opts.turn = t.turn; opts.gap = t.gap;
+  $('tempoRange').value = v; $('tempoName').textContent = t.name;
+  $('tempoMs').textContent = t.turn ? `${t.turn} ms / move` : 'no animation';
+  store.set('tempo', v);
+}
+
+const HELP = [
+  'moves: R U R\' U\' x y2 ...',
+  'scramble | reset | undo | back | plan | step | play | solve | apply | clear',
+  'bestcross | pair [DFR|DLF|DBL|DRB] | f2l | oll | pll | kociemba',
+  'method cfop|kociemba | tempo 0-100 | view reset | modern | colour | help',
+];
+async function runCommand(line) {
+  const text = line.trim();
+  if (!text) return;
+  const words = text.split(/\s+/);
+  const cmd = words[0].toLowerCase(), arg = (words[1] || '').toLowerCase();
+  if (words.every(w => MOVE_RE.test(w))) { if (!playing) run(() => applyTokens(words)); return; }
+  log(text);
+  switch (cmd) {
+    case 'scramble': return run(scramble);
+    case 'reset': return run(reset);
+    case 'undo': return run(undo);
+    case 'back': return run(back);
+    case 'solve': return run(playSolution);
+    case 'plan': return run(planSolution);
+    case 'step': case 'next': return run(step);
+    case 'play': return impulse();
+    case 'apply': case 'finish': return run(applyAll);
+    case 'clear': plan = null; render(); return;
+    case 'bestcross': return bestCross();
+    case 'pair': { const k = CORNER_NAMES.indexOf(arg.toUpperCase()) - 4; return insertPair(k >= 0 && k < 4 ? k : [0,1,2,3].find(s => !snap.pairs[s]) ?? 0); }
+    case 'f2l': return finishF2L();
+    case 'oll': return oll();
+    case 'pll': return pll();
+    case 'kociemba': return kociemba();
+    case 'method': if (arg === 'cfop' || arg === 'kociemba') return setMethod(arg); log('method cfop | kociemba', 'err'); return;
+    case 'tempo': { const v = +arg; if (arg !== '' && v >= 0 && v <= 100) setTempo(v); else log('tempo 0 (learn) to 100 (instant)', 'err'); return; }
+    case 'view': cam.target = { ...HOME_ORBIT }; cam.vx = cam.vy = 0; return;
+    case 'modern': return setModern(!document.body.classList.contains('modern'));
+    case 'colour': case 'color': return setRgb(!document.body.classList.contains('rgb'));
+    case 'help': HELP.forEach(l => log(l)); return;
+    default: log(`unknown command: ${cmd}. type help`, 'err');
+  }
+}
+
+function manual(tokens) { if (!playing) run(() => applyTokens(tokens)); }
+function wireUI() {
+  // A clicked button must not keep focus, or the next Space would click it again
+  document.addEventListener('click', e => { const b = e.target.closest('button'); if (b) b.blur(); });
+  const mg = $('moveGrid');
+  for (const f of 'URFDLB') for (const suf of ['', "'", '2']) {
+    const b = document.createElement('button'); b.textContent = f + suf;
+    b.onclick = () => manual([f + suf]); mg.appendChild(b);
+  }
+  const rg = $('rotGrid');
+  for (const r of 'xyz') for (const suf of ['', "'", '2']) {
+    const b = document.createElement('button'); b.textContent = r + suf;
+    b.onclick = () => manual([r + suf]); rg.appendChild(b);
+  }
+  $('faceKey').innerHTML = COLOR_NAMES.map((c, i) => `<div><i style="--p:${PATTERN_VARS[i]};--c:${COLOR_VARS[i]}"></i>${c[0]}</div>`).join('');
+
+  $('method').onchange = e => setMethod(e.target.value);
+  $('tempoRange').oninput = e => setTempo(+e.target.value);
+  $('tgDim').onclick = () => setOpt('dim', !opts.dim);
+  $('tgCam').onclick = () => setOpt('cam', !opts.cam);
+  $('tgIdle').onclick = () => setOpt('idle', !opts.idle);
+  $('tgRgb').onclick = () => setRgb(!document.body.classList.contains('rgb'));
+  $('tgModern').onclick = () => setModern(!document.body.classList.contains('modern'));
+  $('btnPrev').onclick = () => { if (!playing) run(back); }; $('btnNext').onclick = () => { if (plan && !playing) run(step); };
+  $('btnPlay').onclick = () => { if (plan) impulse(); }; $('btnAll').onclick = () => { if (!playing) run(applyAll); };
+  $('btnSet').onclick = applyEdits; $('btnRevert').onclick = () => { renderState(); $('setMsg').textContent = ''; };
+
+  const cmd = $('cmd');
+  cmd.addEventListener('keydown', e => {
+    e.stopPropagation();
+    if (e.key === 'Enter') { const v = cmd.value; if (v.trim()) { cmdHistory.push(v); histPos = cmdHistory.length; } cmd.value = ''; runCommand(v); }
+    else if (e.key === 'ArrowUp') { if (histPos > 0) { histPos--; cmd.value = cmdHistory[histPos]; } e.preventDefault(); }
+    else if (e.key === 'ArrowDown') { if (histPos < cmdHistory.length) { histPos++; cmd.value = cmdHistory[histPos] || ''; } e.preventDefault(); }
+  });
+
+  // Drag orbits directly; the velocity of the last frames carries on after release
+  const vp = $('viewport');
+  const start = (x, y) => { cam.drag = { x, y, t: performance.now() }; cam.moved = false; cam.vx = cam.vy = 0; cam.target = null; cam.lastInput = performance.now(); };
+  const move = (x, y) => {
+    if (!cam.drag) return;
+    const now = performance.now(), dt = Math.max(1, now - cam.drag.t);
+    const dy = (x - cam.drag.x) * .4, dx = -(y - cam.drag.y) * .4;
+    orbit.y = wrap(orbit.y + dy); orbit.x = clampX(orbit.x + dx);
+    cam.vy = cam.vy * .5 + (dy / dt) * 16 * .5; cam.vx = cam.vx * .5 + (dx / dt) * 16 * .5;
+    if (Math.abs(x - cam.drag.x) + Math.abs(y - cam.drag.y) > 2) cam.moved = true;
+    cam.drag.x = x; cam.drag.y = y; cam.drag.t = now; cam.lastInput = now;
+    applyOrbit();
+  };
+  const end = () => { if (!cam.drag) return; if (performance.now() - cam.drag.t > 80) cam.vx = cam.vy = 0; cam.drag = null; cam.lastInput = performance.now(); };
+  vp.addEventListener('mousedown', e => start(e.clientX, e.clientY));
+  window.addEventListener('mousemove', e => move(e.clientX, e.clientY));
+  window.addEventListener('mouseup', end);
+  vp.addEventListener('touchstart', e => start(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+  vp.addEventListener('touchmove', e => move(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+  vp.addEventListener('touchend', end);
+  new ResizeObserver(fitScene).observe(vp);
+
+  window.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.metaKey || e.ctrlKey || e.altKey) return;
+    cam.lastInput = performance.now();
+    const k = e.key.toLowerCase();
+    if ('urfdlb'.includes(k) && k.length === 1) { manual([k.toUpperCase() + (e.shiftKey ? "'" : '')]); e.preventDefault(); }
+    else if ('xyz'.includes(k) && k.length === 1) { manual([k + (e.shiftKey ? "'" : '')]); e.preventDefault(); }
+    else if (e.key === ' ') { impulse(); e.preventDefault(); }
+    else if (e.key === 'ArrowRight') { if (plan && !playing) run(step); e.preventDefault(); }
+    else if (e.key === 'ArrowLeft' || e.key === 'Backspace') { if (!playing) run(back); e.preventDefault(); }
+    else if (e.key === 'Escape') { plan = null; playing = false; queue.splice(0).forEach(q => q.res()); render(); }
+  });
+}
+
+(async () => {
+  buildCube(); wireUI(); fitScene();
+  requestAnimationFrame(camLoop);
+  const tempo = store.get('tempo'); setTempo(tempo != null && tempo !== '' && !isNaN(+tempo) && +tempo <= 100 ? +tempo : 50);
+  for (const k of ['dim', 'cam', 'idle']) if (store.get(k) === '0') setOpt(k, false);
+  setRgb(store.get('rgb') !== '0');
+  setModern(store.get('modern') !== '0');
+  if (QS.get('method') === 'kociemba') { method = 'kociemba'; $('method').value = 'kociemba'; }
+  $('opId').textContent = 'CUBE_0X' + Math.floor(Math.random() * 4096).toString(16).toUpperCase().padStart(3, '0');
+  log('init render engine... ok');
+  snap = await api('state'); render();
+  $('sys').textContent = 'SYS: ONLINE';
+  // The server owns the cube; if it changed under us (another tab), catch up while idle
+  setInterval(async () => {
+    if (busy || playing || pumping) return;
+    const s = await api('state');
+    if (s.history !== snap.history) { snap = s; plan = null; render(); }
+  }, 2000);
+  log('link to solver... ok');
+  for (const c of (QS.get('run') || '').split(';')) if (c.trim()) await runCommand(c);
+})();
+</script>
+</body>
+</html>

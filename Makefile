@@ -24,7 +24,7 @@ SCRAMBLERS = Scramblers/WCA.cc
 CORE_OBJS = $(addprefix $(BUILD)/,$(notdir $(CORE:.cc=.o) $(SOLVERS:.cc=.o) \
                                           $(SCRAMBLERS:.cc=.o)))
 
-ALL_OBJS = $(CORE_OBJS) $(BUILD)/Main.o $(BUILD)/Tests.o
+ALL_OBJS = $(CORE_OBJS) $(BUILD)/Main.o $(BUILD)/Tests.o $(BUILD)/Server.o
 
 .PHONY: all
 all: cubealgo tests
@@ -33,6 +33,10 @@ cubealgo: $(BUILD)/Main.o $(CORE_OBJS)
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
 tests: $(BUILD)/Tests.o $(CORE_OBJS)
+	$(CXX) $(CXXFLAGS) $^ -o $@
+
+# The browser simulator, served from a local socket so the page can call the solvers
+simulator: $(BUILD)/Server.o $(CORE_OBJS)
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
 $(BUILD)/%.o: %.cc | $(BUILD)
@@ -66,6 +70,9 @@ $(BUILD)/%.o: Solvers/Roux/%.cc | $(BUILD)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(BUILD)/%.o: Scramblers/%.cc | $(BUILD)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD)/%.o: Simulator/%.cc | $(BUILD)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(BUILD):
