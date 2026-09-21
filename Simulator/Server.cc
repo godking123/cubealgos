@@ -168,12 +168,17 @@ std::string handle(Session& ss, const std::string& cmd, std::map<std::string, st
         ss.state = ss.history.back().first; ss.hold = ss.history.back().second; ss.history.pop_back();
         return snap();
     }
+    // A scramble is applied to a solved cube in the standard hold, so the page can show
+    // it as moves to make on a real cube
     if (cmd == "scramble") {
         push();
+        ss.state = CubeState::solved(); ss.hold = Orientation{};
         std::vector<Move> sc = WCA::scramble();
         for (Move m : sc) ss.state = ss.state.apply(m);
         return "{\"moves\":" + moves(sc) + ",\"state\":" + snap() + "}";
     }
+    // A scramble the page plays out move by move, so nothing is applied here
+    if (cmd == "wca") return "{\"moves\":" + moves(WCA::scramble()) + "}";
     if (cmd == "apply") {
         std::istringstream in(q["seq"]);
         std::string tok;
