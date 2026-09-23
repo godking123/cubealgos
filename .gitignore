@@ -10,6 +10,8 @@
 !*.md
 !Makefile
 !*.html
+!*.png
+!*.svg
 !.gitignore
 
 # specific excludes
