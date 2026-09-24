@@ -9,6 +9,7 @@
 <style>
   :root {
     --ink: #000; --paper: #fff; --grey: #6b6b6b; --faint: #c8c8c8; --rule: 1px solid #000; --bar: 2px solid #000;
+    --grey-tile: #a2a2a2;
     --white: #ffffff; --red: #d7263d; --green: #22a04a; --yellow: #f7c600; --orange: #f57a1f; --blue: #1e56d0;
     --mono: "Space Mono", ui-monospace, Menlo, Consolas, monospace;
     /* Face patterns, one per colour in URFDLB colour order: white yellow green blue red orange */
@@ -117,6 +118,9 @@
   .cubie.dim .face.sticker::before { background-image: none; background-color: #fff; border-color: #bbb; }
   body.rgb .cubie.dim .face.sticker::before { background-color: color-mix(in srgb, var(--c) 22%, #fff); }
   .cubie.picked .face.sticker::before { border-color: #fff; box-shadow: inset 0 0 0 2px #000; }
+  /* Grey tiles: a step's unused pieces when greying is on */
+  body.greydim .cubie.dim .face.sticker::before {
+    background-image: none !important; background-color: var(--grey-tile) !important; border-color: var(--ink); }
   .face { --z: 30px; --s: 1; }
   .face.f { transform: translateZ(var(--z)) scale(var(--s)); } .face.b { transform: rotateY(180deg) translateZ(var(--z)) scale(var(--s)); }
   .face.r { transform: rotateY(90deg) translateZ(var(--z)) scale(var(--s)); } .face.l { transform: rotateY(-90deg) translateZ(var(--z)) scale(var(--s)); }
@@ -130,9 +134,25 @@
   #pickMsg { position: absolute; left: 12px; bottom: 12px; padding: 4px 8px; border: var(--rule); background: var(--paper); font-size: 11px; text-transform: none; }
   #pickMsg[hidden] { display: none; }
   #viewTag { position: absolute; left: 12px; top: 12px; display: flex; gap: 18px; padding: 8px 12px; border: var(--bar); background: var(--paper); font-weight: 700; font-size: 14px; pointer-events: none; }
-  #viewTag .sw { display: inline-block; width: 14px; height: 14px; border: 1.5px solid var(--ink); vertical-align: -2px; margin: 0 6px 0 4px; background: var(--c); }
+  #viewTag .sw { display: inline-block; width: 14px; height: 14px; border: 1.5px solid var(--ink); vertical-align: -2px; margin: 0 6px 0 4px;
+    background-color: #fff; background-image: var(--p); image-rendering: pixelated; }
+  body.rgb #viewTag .sw { background-image: none; background-color: var(--c); }
   #viewTag .lbl { display: inline; margin: 0; }
   #viewTag .away { color: var(--grey); font-weight: 400; }
+
+  /* Case card: fades in over the corner while an OLL or PLL step runs */
+  #caseCard { position: absolute; right: 12px; top: 12px; width: 180px; padding: 8px 12px 10px; border: var(--bar); background: var(--paper);
+    pointer-events: none; opacity: 0; transform: translateY(-8px); transition: opacity .35s ease, transform .35s ease; }
+  #caseCard.show { opacity: 1; transform: none; }
+  #caseCard .cc-top { font-weight: 700; font-size: 14px; }
+  #caseCard .cc-name { color: var(--grey); font-size: 11px; text-transform: none; line-height: 1.35; min-height: 1.35em; margin: 2px 0 6px; }
+  #caseCard .cc-fig { display: grid; place-items: center; height: 136px; border-top: var(--rule); border-bottom: var(--rule); margin-bottom: 6px; }
+  #caseCard .cc-alg { text-transform: none; font-size: 13px; line-height: 1.7; }
+  .ll { position: relative; display: grid; grid-template-columns: 9px repeat(3, 30px) 9px; grid-template-rows: 9px repeat(3, 30px) 9px; gap: 2px; }
+  .ll i.st { border: 1.5px solid var(--ink); background-color: #fff; background-image: var(--p); image-rendering: pixelated; }
+  body.rgb .ll i.st { background-image: none; background-color: var(--c); }
+  .ll i.st.grey, body.rgb .ll i.st.grey { background-image: none; background-color: var(--grey-tile); }
+  .ll svg { position: absolute; left: 11px; top: 11px; width: 94px; height: 94px; overflow: visible; }
 
   /* Sequence */
   #seq { text-transform: none; font-size: 13px; line-height: 1.7; }
@@ -207,6 +227,7 @@
       <div id="viewTag"></div>
       <div id="prompt" hidden></div>
       <div id="pickMsg" hidden></div>
+      <div id="caseCard"></div>
     </section>
 
     <aside id="right">
@@ -233,6 +254,8 @@
       <div class="blk">
         <div class="lbl">Options</div>
         <button class="tg on" id="tgDim">Highlight step pieces</button><br>
+        <button class="tg" id="tgGrey">Grey out, not fade</button><br>
+        <button class="tg on" id="tgCard">Case card</button><br>
         <button class="tg on" id="tgCam">Auto camera</button><br>
         <button class="tg on" id="tgIdle">Idle drift</button><br>
         <button class="tg on" id="tgRgb">Colour faces</button><br>
@@ -304,7 +327,7 @@ const pad3 = n => String(n).padStart(3, '0');
 const ease = t => t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
 
 let snap = null, cubies = [], picked = null;
-let method = 'cfop', opts = { turn: 220, gap: 160, dim: true, cam: true, idle: true };
+let method = 'cfop', opts = { turn: 220, gap: 160, dim: true, grey: false, card: true, cam: true, idle: true };
 let plan = null, playing = false, busy = false, solves = 0, zoom = 1;
 let scrambleMoves = [], scramblePos = 0;
 let orbit = { ...HOME_ORBIT };
@@ -371,14 +394,21 @@ function fitScene() {
 // which decays into a stop; a target, set when the next move's face is hidden,
 // eases the view round the short way; and after a while untouched the cube drifts
 // and bobs on its own until something happens
-const cam = { vx: 0, vy: 0, target: null, drag: null, moved: false, lastInput: 0, bob: 0 };
+//
+// The ease runs on elapsed time, not frames, and its time constant follows the turn
+// time, so at fast tempos the camera keeps up instead of holding the solve back
+const cam = { vx: 0, vy: 0, target: null, drag: null, moved: false, lastInput: 0, bob: 0, last: 0 };
+const camTau = () => Math.max(70, Math.min(360, opts.turn * 1.6 + 40));  // Ease Time Constant, ms
 const wrap = a => ((a + 540) % 360) - 180;
 const clampX = x => Math.max(-88, Math.min(88, x));
 function camLoop(now) {
+  const dt = Math.min(100, now - (cam.last || now));
+  cam.last = now;
   if (!cam.drag) {
     if (cam.target) {
       const dx = (cam.target.x ?? orbit.x) - orbit.x, dy = wrap((cam.target.y ?? orbit.y) - orbit.y);
-      orbit.x += dx * .045; orbit.y += dy * .045;
+      const k = 1 - Math.exp(-dt / camTau());
+      orbit.x += dx * k; orbit.y += dy * k;
       if (Math.abs(dx) < .5 && Math.abs(dy) < .5) cam.target = null;
     } else {
       orbit.y += cam.vy; orbit.x = clampX(orbit.x + cam.vx);
@@ -399,10 +429,12 @@ function camLoop(now) {
   requestAnimationFrame(camLoop);
 }
 function nearOrbit(t) { return Math.abs(t.x - orbit.x) < 4 && Math.abs(wrap(t.y - orbit.y)) < 4; }
-function waitCam(ms) {
+// Done once the face has come into view, the camera settles the rest of the way
+// while the move plays
+function waitCam(ms, face) {
   return new Promise(res => {
     const t0 = performance.now();
-    const tick = () => (!cam.target || performance.now() - t0 > ms) ? res() : requestAnimationFrame(tick);
+    const tick = () => (!cam.target || faceVisible(face) || performance.now() - t0 > ms) ? res() : requestAnimationFrame(tick);
     tick();
   });
 }
@@ -427,8 +459,10 @@ function render() {
   }
   renderReadouts();
   renderSeq();
+  captureStart();
   applyHighlight();
   renderState();
+  renderCaseCard();
 }
 
 function stageOf(s) {
@@ -461,7 +495,7 @@ function renderScramble() {
 // actually turned toward the camera
 function renderViewTag() {
   if (!snap) return;
-  const sw = c => `<i class="sw" style="--c:${COLOR_VARS[c]}"></i>`;
+  const sw = c => `<i class="sw" style="--c:${COLOR_VARS[c]};--p:${PATTERN_VARS[c]}"></i>`;
   const html = `<span><span class="lbl">Front</span>${sw(snap.faces[2])}${COLOR_NAMES[snap.faces[2]]}</span>`
     + `<span><span class="lbl">Up</span>${sw(snap.faces[0])}${COLOR_NAMES[snap.faces[0]]}</span>`
     + (faceVisible('F') ? '' : '<span class="away">front face turned away</span>');
@@ -507,7 +541,18 @@ function renderSeq() {
   if (cur) cur.scrollIntoView({ block: 'nearest' });
 }
 
+// The cube as each step found it, taken on a render at the step's first move while
+// nothing is in flight; applyTokens renders mid-step with the position not yet
+// advanced, and a capture there would record the state one move late
+function captureStart() {
+  if (!plan || busy) return;
+  const { g } = groupAt(plan.pos);
+  if (plan.pos === groupStart(g)) g.startSnap = snap;
+}
+
 // Only while a solution is being followed, and only the pieces its current step moves
+// A pair counts as done if it was home when the step began: algs lift finished pairs
+// out and put them back, and the live flags would grey them out on the way
 function stagePieces() {
   const set = new Set();
   if (method !== 'cfop' || !following()) return set;
@@ -517,9 +562,10 @@ function stagePieces() {
   if (cur === 'f2l') {
     [4,5,6,7].forEach(p => add('e', p));
     const m = groupAt(plan.pos).g.label.match(/\b(DFR|DLF|DBL|DRB)\b/);
-    const slots = m ? [CORNER_NAMES.indexOf(m[1]) - 4] : [0,1,2,3].filter(k => !snap.pairs[k]);
+    const done = (groupAt(plan.pos).g.startSnap || snap).pairs;
+    const slots = m ? [CORNER_NAMES.indexOf(m[1]) - 4] : [0,1,2,3].filter(k => !done[k]);
     for (const k of slots) { add('c', 4 + k); add('e', 8 + k); }
-    for (const k of [0,1,2,3]) if (snap.pairs[k]) { add('c', 4 + k); add('e', 8 + k); }
+    for (const k of [0,1,2,3]) if (done[k]) { add('c', 4 + k); add('e', 8 + k); }
   }
   if (cur === 'oll' || cur === 'pll') [0,1,2,3].forEach(k => { add('c', k); add('e', k); });
   return set;
@@ -535,6 +581,107 @@ function applyHighlight() {
     el.classList.toggle('dim', !on);
     el.classList.toggle('picked', picked && picked.kind === el.dataset.kind && picked.idx === +el.dataset.idx);
   }
+}
+
+// Case Card
+//
+// An OLL or PLL step shows the case it solves in the corner of the viewport: the U
+// layer as it stood when the step began, drawn top down the way the alg is learnt. It
+// fades in as the step starts and out as it ends, so it never describes a state gone
+// Every Corner and Edge Sticker With Its Cubie Position and Face
+function stickersOf(s) {
+  const out = [];
+  CORNER_POS.forEach((p, i) => CORNER_FACES[i].forEach((f, k) => out.push({ pos: p, face: f, color: s.corners[i][k] })));
+  EDGE_POS.forEach((p, i) => EDGE_FACES[i].forEach((f, k) => out.push({ pos: p, face: f, color: s.edges[i][k] })));
+  return out;
+}
+
+function caseKind(g) {
+  if (g.label === 'OLL') return 'oll';
+  if (g.label === 'PLL') return 'pll';
+  return null;
+}
+function groupStart(g) {
+  let n = 0;
+  for (const h of plan.groups) { if (h === g) return n; n += h.tokens.length; }
+  return n;
+}
+function caseStep() {
+  if (!plan || !opts.card) return null;
+  const { g } = groupAt(plan.pos), kind = caseKind(g);
+  if (!kind) return null;
+  const start = groupStart(g);
+  if (!g.startSnap) return null;
+  return { g, kind, i: plan.pos - start };
+}
+
+// Top view of the U layer on a 5 by 5 grid, side stickers as the border strips
+// OLL shows only where the U colour is, PLL shows every colour and where pieces go
+function drawLastLayer(s, kind) {
+  const cells = { '2,2': { c: s.faces[0], top: true } }, up = s.faces[0];
+  for (const st of stickersOf(s)) {
+    const [x, y, z] = st.pos, F = FACE_LETTER[st.face];
+    if (y !== 1) continue;
+    const at = { U: [z + 2, x + 2], B: [0, x + 2], F: [4, x + 2], L: [z + 2, 0], R: [z + 2, 4] }[F];
+    if (at) cells[at.join()] = { c: st.color, top: F === 'U' };
+  }
+  let html = '';
+  for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) {
+    const cell = cells[r + ',' + c];
+    const show = cell && (kind === 'pll' || cell.c === up);
+    if (show) html += `<i class="st" style="--c:${COLOR_VARS[cell.c]};--p:${PATTERN_VARS[cell.c]}"></i>`;
+    else html += cell && cell.top ? '<i class="st grey"></i>' : '<i></i>';
+  }
+  return `<div class="ll">${html}${kind === 'pll' ? pllArrows(s) : ''}</div>`;
+}
+// One arrow per piece out of place, from its slot to its home; a swap is one line
+// headed at both ends
+function pllArrows(s) {
+  const at = p => [15 + (p[0] + 1) * 32, 15 + (p[2] + 1) * 32];
+  const lines = [];
+  const add = (POS, perm) => {
+    for (let i = 0; i < 4; i++) {
+      const j = perm[i];
+      if (j === i || j > 3) continue;
+      const both = perm[j] === i;
+      if (both && j < i) continue;
+      lines.push([at(POS[i]), at(POS[j]), both]);
+    }
+  };
+  add(CORNER_POS, s.cp); add(EDGE_POS, s.ep);
+  let svg = '';
+  for (const [a, b, both] of lines) {
+    const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy), ux = dx / len * 7, uy = dy / len * 7;
+    const d = `M${a[0] + ux} ${a[1] + uy}L${b[0] - ux} ${b[1] - uy}`;
+    svg += `<path d="${d}" stroke="#fff" stroke-width="5"/>`
+         + `<path d="${d}" stroke="#000" stroke-width="2.2" marker-end="url(#ah)"${both ? ' marker-start="url(#ah)"' : ''}/>`;
+  }
+  return '<svg viewBox="0 0 94 94" fill="none"><defs><marker id="ah" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">'
+       + '<path d="M0 0L10 5L0 10z" fill="#000"/></marker></defs>' + svg + '</svg>';
+}
+
+function fillCardAlg(cs) {
+  $('caseCard').querySelector('.cc-alg').innerHTML = cs.g.tokens.map((t, j) =>
+    `<span class="tok${j < cs.i ? ' done' : j === cs.i && following() ? ' next' : ''}">${t}</span>`).join('');
+}
+function fillCard(cs) {
+  const { g, kind } = cs, el = $('caseCard');
+  card.filled = g;
+  const name = g.caseName || (kind === 'pll' ? 'AUF only' : '');
+  el.innerHTML = `<div class="cc-top">${g.label}</div><div class="cc-name">${name}</div>`
+    + `<div class="cc-fig">${drawLastLayer(g.startSnap, kind)}</div><div class="cc-alg"></div>`;
+  fillCardAlg(cs);
+}
+// A new step fades the old card out before the next one fades in
+const card = { g: null, filled: null, timer: 0 };
+function renderCaseCard() {
+  const el = $('caseCard'), cs = caseStep(), g = cs ? cs.g : null;
+  if (g === card.g) { if (cs && card.filled === g) fillCardAlg(cs); return; }
+  card.g = g;
+  clearTimeout(card.timer);
+  const show = () => { const now = caseStep(); if (!now) return; fillCard(now); el.classList.add('show'); };
+  if (el.classList.contains('show')) { el.classList.remove('show'); card.timer = setTimeout(show, 380); }
+  else if (g) requestAnimationFrame(show);
 }
 
 function pick(kind, idx) {
@@ -666,7 +813,7 @@ async function step() {
   if (opts.cam && !cam.drag) {
     const face = 'xyz'.includes(t[0]) ? null : t[0];
     const want = face && (PEEK_OF_FACE[face] || HOME_ORBIT);
-    if (want && !faceVisible(face) && !nearOrbit(want)) { cam.target = { ...want }; await waitCam(1200); }
+    if (want && !faceVisible(face) && !nearOrbit(want)) { cam.target = { ...want }; await waitCam(Math.min(1200, opts.turn * 3), face); }
   }
   if (!await applyTokens([t], { quiet: true, keepPlan: true })) return false;
   if (!plan) return false;  // Cleared While the Move Was in Flight
@@ -702,8 +849,8 @@ async function applyAll() {
 }
 
 function fail(res) { if (res.error) { log(res.error, 'err'); return true; } return false; }
-function found(label, moves) {
-  setPlan([{ label, tokens: moves }]);
+function found(label, moves, caseName = '') {
+  setPlan([{ label, tokens: moves, caseName }]);
   log(`${label}: ${moves.length ? moves.join(' ') : '(nothing)'}`, 'ok');
 }
 async function bestCross() {
@@ -720,8 +867,8 @@ async function finishF2L() {
   setPlan(r.pairs.map(p => ({ label: `${CORNER_NAMES[4 + p.slot]} pair`, tokens: p.moves })));
   for (const p of r.pairs) log(`${CORNER_NAMES[4 + p.slot]} pair: ${p.moves.join(' ')}`, 'ok');
 }
-async function oll() { const r = await api('oll'); if (fail(r)) return; found('OLL', r.moves); }
-async function pll() { const r = await api('pll'); if (fail(r)) return; found('PLL', r.moves); }
+async function oll() { const r = await api('oll'); if (fail(r)) return; found('OLL', r.moves, r.case); }
+async function pll() { const r = await api('pll'); if (fail(r)) return; found('PLL', r.moves, r.case); }
 async function kociemba() {
   status('Searching');
   const r = await api('kociemba'); if (fail(r)) return;
@@ -738,7 +885,7 @@ async function planSolution() {
   status('Searching');
   const r = await api('cfop'); if (fail(r)) return false;
   const rot = r.rotation ? r.rotation.split(' ') : [];
-  setPlan(r.steps.map((s, i) => ({ label: s.label, tokens: i === 0 ? [...rot, ...s.moves] : s.moves })));
+  setPlan(r.steps.map((s, i) => ({ label: s.label, tokens: i === 0 ? [...rot, ...s.moves] : s.moves, caseName: s.case })));
   log(`cfop: ${plan ? plan.total : 0} moves`, 'ok');
   for (const s of r.steps) log(`  ${s.label}: ${s.moves.length ? s.moves.join(' ') : '(done)'}`);
   return true;
@@ -785,9 +932,11 @@ async function applyEdits() {
 function setMethod(m) { method = m; $('method').value = m; plan = null; render(); log('method: ' + m); }
 function setOpt(key, on) {
   opts[key] = on; store.set(key, on ? '1' : '0');
-  const tg = { dim: 'tgDim', cam: 'tgCam', idle: 'tgIdle' }[key];
+  const tg = { dim: 'tgDim', grey: 'tgGrey', card: 'tgCard', cam: 'tgCam', idle: 'tgIdle' }[key];
   if (tg) $(tg).classList.toggle('on', on);
+  if (key === 'grey') document.body.classList.toggle('greydim', on);
   if (key === 'dim') applyHighlight();
+  if (key === 'card') renderCaseCard();
 }
 function setModern(on) { document.body.classList.toggle('modern', on); $('tgModern').classList.toggle('on', on); store.set('modern', on ? '1' : '0'); }
 function setRgb(on) { document.body.classList.toggle('rgb', on); $('tgRgb').classList.toggle('on', on); store.set('rgb', on ? '1' : '0'); }
@@ -803,7 +952,7 @@ const HELP = [
   'moves: R U R\' U\' x y2 ...',
   'scramble | reset | undo | back | plan | step | play | solve | apply | clear',
   'bestcross | pair [DFR|DLF|DBL|DRB] | f2l | oll | pll | kociemba',
-  'method cfop|kociemba | tempo 0-100 | view reset | modern | colour | help',
+  'method cfop|kociemba | tempo 0-100 | view reset | modern | colour | grey | card | help',
 ];
 async function runCommand(line) {
   const text = line.trim();
@@ -834,6 +983,8 @@ async function runCommand(line) {
     case 'view': cam.target = { ...HOME_ORBIT }; cam.vx = cam.vy = 0; return;
     case 'modern': return setModern(!document.body.classList.contains('modern'));
     case 'colour': case 'color': return setRgb(!document.body.classList.contains('rgb'));
+    case 'grey': case 'gray': return setOpt('grey', !opts.grey);
+    case 'card': return setOpt('card', !opts.card);
     case 'help': HELP.forEach(l => log(l)); return;
     default: log(`unknown command: ${cmd}. type help`, 'err');
   }
@@ -858,6 +1009,8 @@ function wireUI() {
   $('method').onchange = e => setMethod(e.target.value);
   $('tempoRange').oninput = e => setTempo(+e.target.value);
   $('tgDim').onclick = () => setOpt('dim', !opts.dim);
+  $('tgGrey').onclick = () => setOpt('grey', !opts.grey);
+  $('tgCard').onclick = () => setOpt('card', !opts.card);
   $('tgCam').onclick = () => setOpt('cam', !opts.cam);
   $('tgIdle').onclick = () => setOpt('idle', !opts.idle);
   $('tgRgb').onclick = () => setRgb(!document.body.classList.contains('rgb'));
@@ -913,7 +1066,8 @@ function wireUI() {
   buildCube(); wireUI(); fitScene();
   requestAnimationFrame(camLoop);
   const tempo = store.get('tempo'); setTempo(tempo != null && tempo !== '' && !isNaN(+tempo) && +tempo <= 100 ? +tempo : 50);
-  for (const k of ['dim', 'cam', 'idle']) if (store.get(k) === '0') setOpt(k, false);
+  for (const k of ['dim', 'card', 'cam', 'idle']) if (store.get(k) === '0') setOpt(k, false);
+  setOpt('grey', store.get('grey') === '1');
   setRgb(store.get('rgb') !== '0');
   setModern(store.get('modern') !== '0');
   if (QS.get('method') === 'kociemba') { method = 'kociemba'; $('method').value = 'kociemba'; }

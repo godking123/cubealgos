@@ -135,8 +135,10 @@ int placedMask(const CubeState& s) {
     return mask;
 }
 
-std::string step(const std::string& label, const std::vector<Move>& m) {
-    return "{\"label\":" + quoted(label) + ",\"moves\":" + moves(m) + "}";
+// name is the case the step's alg solves, empty for a stage with no case table
+std::string step(const std::string& label, const std::vector<Move>& m,
+                 const std::string& name = "") {
+    return "{\"label\":" + quoted(label) + ",\"case\":" + quoted(name) + ",\"moves\":" + moves(m) + "}";
 }
 
 // Every stage in the cross frame, so the page shows the rotation once and the moves
@@ -151,8 +153,10 @@ std::string cfop(const CubeState& start) {
     static const char* slotName[] = {"DFR", "DLF", "DBL", "DRB"};
     for (const F2LPair& p : F2L::solve(s))
         out += "," + step(std::string(slotName[p.slot]) + " pair", run(p.moves));
-    out += "," + step("OLL", run(OLL::solve(s)));
-    out += "," + step("PLL", run(PLL::solve(s)));
+    std::string oll = OLL::caseName(s);
+    out += "," + step("OLL", run(OLL::solve(s)), oll);
+    std::string pll = PLL::caseName(s);
+    out += "," + step("PLL", run(PLL::solve(s)), pll);
     return out + "]}";
 }
 
@@ -232,12 +236,12 @@ std::string handle(Session& ss, const std::string& cmd, std::map<std::string, st
     }
     if (cmd == "oll") {
         if (!F2L::isSolved(ss.state)) return err("Solve F2L first");
-        return "{\"moves\":" + moves(OLL::solve(ss.state)) + "}";
+        return "{\"case\":" + quoted(OLL::caseName(ss.state)) + ",\"moves\":" + moves(OLL::solve(ss.state)) + "}";
     }
     if (cmd == "pll") {
         if (!F2L::isSolved(ss.state)) return err("Solve F2L first");
         if (!OLL::isSolved(ss.state)) return err("Orient the last layer first");
-        return "{\"moves\":" + moves(PLL::solve(ss.state)) + "}";
+        return "{\"case\":" + quoted(PLL::caseName(ss.state)) + ",\"moves\":" + moves(PLL::solve(ss.state)) + "}";
     }
     if (cmd == "cfop") return cfop(ss.state);
     if (cmd == "kociemba") return "{\"moves\":" + moves(Kociemba::solve(ss.state)) + "}";
@@ -269,6 +273,7 @@ int main(int argc, char** argv) {
     int port = argc > 1 ? std::atoi(argv[1]) : 8080;
     std::cout << "Building tables..." << std::flush;
     Kociemba::buildTables();
+    F2L::buildTables();
     OLL::buildTables();
     PLL::buildTables();
     std::cout << " done\n";

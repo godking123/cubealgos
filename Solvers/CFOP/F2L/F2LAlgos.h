@@ -3,12 +3,14 @@
 
 #include <string>
 
-struct F2LAlgos {
+// One Alg per Case, Pair Inserted Into the FR Slot
+// Corner and edge start in the U layer or the FR slot, never in another slot
+struct F2LAlgo {
     std::string name;
     std::string moves;
 };
 
-const F2LAlgos ALGS[] = {
+const F2LAlgo F2L_ALGS[] = {
     {"corner URF D up, edge UR",                     "R U2 R' U' R U R'"},
     {"corner URF D right, edge UR",                  "U' R U' R' U R U R'"},
     {"corner URF D front, edge UR",                  "U R U' R'"},

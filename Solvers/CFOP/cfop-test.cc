@@ -11,6 +11,7 @@
 // Scrambles are WCA random state, so they need the solver's tables
 int main() {
     Kociemba::buildTables();
+    F2L::buildTables();
     std::cout << "Scramble with " << orientationName(Orientation{}) << "\n\n";
     std::string line;
     int n = 1;

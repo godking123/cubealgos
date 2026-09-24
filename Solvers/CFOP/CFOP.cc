@@ -7,8 +7,9 @@
 
 namespace CFOP {
 
-// Cross and F2L search, only the last layer needs tables
+// Cross searches, F2L and the last layer look their cases up
 void buildTables() {
+    F2L::buildTables();
     OLL::buildTables();
     PLL::buildTables();
 }

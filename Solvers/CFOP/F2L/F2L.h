@@ -21,8 +21,15 @@ namespace F2L {
     // Cross and All Four Pairs Home
     bool isSolved(const CubeState& s);
 
+    // Case Table, Every FR Pair Case to the Alg That Inserts It
+    void buildTables();
+    int tableSize();
+
+    // Moves that insert the slot's pair, nothing if it is already home
+    // The alg for the case when the table has one, keeping the cross and every other
+    // pair. Otherwise a search that keeps the cross and the placed pairs
     std::vector<Move> solvePair(const CubeState& s, int slot, int placed);
-    
+
     // Each Round Inserts Current Cheapest Pair
     std::vector<F2LPair> solve(const CubeState& s);
 

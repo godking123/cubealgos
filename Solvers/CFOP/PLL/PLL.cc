@@ -5,7 +5,13 @@
 
 namespace PLL {
 
-static std::unordered_map<uint32_t, std::vector<Move>> table;  // Key : Moves to Solve
+// Moves to Solve and the Alg They Came From
+struct Entry {
+    std::vector<Move> moves;
+    std::string name;
+};
+
+static std::unordered_map<uint32_t, Entry> table;  // Key : Entry
 
 // Two bits per U corner then two per U edge, slot order
 // Pieces 0 to 3 are the U layer, so each fits in two bits once F2L is solved
@@ -21,12 +27,12 @@ bool isSolved(const CubeState& s) {
 }
 
 // The case an alg solves is the alg undone on a solved cube
-static void insert(const std::vector<Move>& seq) {
+static void insert(const std::vector<Move>& seq, const std::string& name = "") {
     CubeState s = CubeState::solved();
     for (int i = seq.size() - 1; i >= 0; i--) s = s.apply(inverseMove(seq[i]));
     uint32_t key = encode(s);
     auto it = table.find(key);
-    if (it == table.end() || seq.size() < it->second.size()) table[key] = seq;
+    if (it == table.end() || seq.size() < it->second.moves.size()) table[key] = {seq, name};
 }
 
 // A PLL needs a U turn before the alg to line the case up and one after to line the
@@ -44,7 +50,7 @@ void buildTables() {
                 std::vector<Move> seq = pre;
                 seq.insert(seq.end(), alg.begin(), alg.end());
                 seq.insert(seq.end(), post.begin(), post.end());
-                insert(canonicalize(seq));
+                insert(canonicalize(seq), a.name);
             }
         }
     }
@@ -57,7 +63,12 @@ int tableSize() {
 std::vector<Move> solve(const CubeState& s) {
     auto it = table.find(encode(s));
     if (it == table.end()) return {};
-    return it->second;
+    return it->second.moves;
+}
+
+std::string caseName(const CubeState& s) {
+    auto it = table.find(encode(s));
+    return it == table.end() ? "" : it->second.name;
 }
 
 } // namespace PLL

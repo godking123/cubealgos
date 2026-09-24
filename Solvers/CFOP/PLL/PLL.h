@@ -2,6 +2,7 @@
 #define PLL_H
 
 #include <cstdint>
+#include <string>
 #include <vector>
 #include "../../../CubeState/CubeState.h"
 
@@ -16,6 +17,9 @@ namespace PLL {
 
     // Moves that finish the cube, nothing if it is already solved
     std::vector<Move> solve(const CubeState& s);
+
+    // Name of the alg solve uses, empty when a U turn alone finishes the cube
+    std::string caseName(const CubeState& s);
 } // namespace PLL
 
 #endif // PLL_H

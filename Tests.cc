@@ -8,6 +8,11 @@
 #include "Solvers/CFOP/PieceSearch.h"
 #include "Solvers/CFOP/Cross/Cross.h"
 #include "Solvers/CFOP/F2L/F2L.h"
+#include "Solvers/CFOP/F2L/F2LAlgos.h"
+#include "Solvers/CFOP/OLL/OLL.h"
+#include "Solvers/CFOP/OLL/OLLAlgos.h"
+#include "Solvers/CFOP/PLL/PLL.h"
+#include "Solvers/CFOP/PLL/PLLAlgos.h"
 #include "Scramblers/WCA.h"
 
 // ─── ANSI Color Codes ──────────────────────────────────────────────────────────
@@ -1456,6 +1461,85 @@ static bool runAllTests() {
         total++; if (runTest("Greedy F2L solves two layers, one pair per slot, nothing broken", ok)) passed++;
     }
 
+    // Test 98: the F2L table holds all 149 cases plus solved, and every alg, set up in
+    // every slot by undoing it from a y turned hold, comes back no longer than itself
+    // and leaves the cross and all four pairs home
+    {
+        bool ok = F2L::tableSize() == 150;
+        CubeState solved = CubeState::solved();
+        for (const F2LAlgo& a : F2L_ALGS) {
+            std::vector<Move> alg = parseSequence(a.moves);
+            Orientation hold;
+            for (int turn = 0; turn < 4; turn++, hold = hold.then(CubeRot::y)) {
+                CubeState s = solved;
+                for (int i = alg.size() - 1; i >= 0; i--)
+                    s = s.apply(translateMove(inverseMove(alg[i]), hold));
+
+                // The One Slot the Undo Opened
+                int open = -1, opened = 0;
+                for (int slot = 0; slot < F2L::SLOTS; slot++)
+                    if (!F2L::solvePair(s, slot, 0).empty()) { open = slot; opened++; }
+                if (opened != 1) { ok = false; continue; }
+
+                std::vector<Move> fix = F2L::solvePair(s, open, 0);
+                if (fix.size() > alg.size()) ok = false;
+                for (Move m : fix) s = s.apply(m);
+                if (!F2L::isSolved(s)) ok = false;
+            }
+        }
+        total++; if (runTest("F2L table covers every alg's case in every slot", ok)) passed++;
+    }
+
+    // ─── CFOP: Last Layer Tables ──────────────────────────────────────────────────
+
+    // Test 99: the OLL table holds all 57 cases at every U angle plus solved, each alg's
+    // own case is named after it, and every case in the table, set up by undoing an alg
+    // after any U turn, comes back oriented with F2L untouched
+    //
+    // A wrong name means two algs claim one case, so one of them is mislabelled
+    {
+        bool ok = OLL::tableSize() == 216 && OLL::caseName(CubeState::solved()).empty();
+        static const Move AUF[] = {Move::U, Move::U2, Move::Up};
+        for (const OLLAlgo& a : OLL_ALGS) {
+            std::vector<Move> alg = parseSequence(a.moves);
+            CubeState base = CubeState::solved();
+            for (int i = alg.size() - 1; i >= 0; i--) base = base.apply(inverseMove(alg[i]));
+            if (OLL::caseName(base) != a.name) ok = false;
+            for (int turn = 0; turn < 4; turn++) {
+                CubeState s = turn ? base.apply(AUF[turn - 1]) : base;
+                std::vector<Move> fix = OLL::solve(s);
+                if (fix.empty() || fix.size() > alg.size() + 1) ok = false;
+                for (Move m : fix) s = s.apply(m);
+                if (!OLL::isSolved(s) || !F2L::isSolved(s)) ok = false;
+            }
+        }
+        total++; if (runTest("OLL table has every case, names match algs, all solve", ok)) passed++;
+    }
+
+    // Test 100: the PLL table holds all 21 cases at every pre and post U turn plus the
+    // four U turns alone, each alg's own case is named after it, and every case solves
+    // the cube outright from any U angle
+    {
+        bool ok = PLL::tableSize() == 288 && PLL::caseName(CubeState::solved()).empty()
+               && PLL::caseName(CubeState::solved().apply(Move::U)).empty()
+               && PLL::solve(CubeState::solved()).empty();
+        static const Move AUF[] = {Move::U, Move::U2, Move::Up};
+        for (const PLLAlgo& a : PLL_ALGS) {
+            std::vector<Move> alg = parseSequence(a.moves);
+            CubeState base = CubeState::solved();
+            for (int i = alg.size() - 1; i >= 0; i--) base = base.apply(inverseMove(alg[i]));
+            if (PLL::caseName(base) != a.name) ok = false;
+            for (int turn = 0; turn < 4; turn++) {
+                CubeState s = turn ? base.apply(AUF[turn - 1]) : base;
+                std::vector<Move> fix = PLL::solve(s);
+                if (fix.size() > alg.size() + 2) ok = false;
+                for (Move m : fix) s = s.apply(m);
+                if (!s.isSolved()) ok = false;
+            }
+        }
+        total++; if (runTest("PLL table has every case, names match algs, all solve", ok)) passed++;
+    }
+
     std::cout << "\n" << BOLD;
     if (passed == total)
         std::cout << "\033[32m  All " << total << "/" << total << " tests passed\033[0m\n";
@@ -1468,5 +1552,8 @@ static bool runAllTests() {
 // ─── Entry Point ──────────────────────────────────────────────────────────────
 int main() {
     Kociemba::buildTables();
+    F2L::buildTables();
+    OLL::buildTables();
+    PLL::buildTables();
     return runAllTests() ? 0 : 1;
 }
