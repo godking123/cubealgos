@@ -1490,9 +1490,55 @@ static bool runAllTests() {
         total++; if (runTest("F2L table covers every alg's case in every slot", ok)) passed++;
     }
 
+    // Test 99: every extract, seen from each slot's side by a y turned hold, empties
+    // that one slot and keeps the cross, so lifting a stuck piece out costs no pair
+    // already placed
+    {
+        bool ok = F2L::extracts().size() == 6;
+        Orientation hold;
+        for (int turn = 0; turn < 4; turn++, hold = hold.then(CubeRot::y)) {
+            for (const std::vector<Move>& e : F2L::extracts()) {
+                CubeState s = CubeState::solved();
+                for (Move m : e) s = s.apply(translateMove(m, hold));
+                int opened = 0;
+                for (int slot = 0; slot < F2L::SLOTS; slot++)
+                    if (!F2L::solvePair(s, slot, 0).empty()) opened++;
+                if (opened != 1 || !Cross::isSolved(s)) ok = false;
+            }
+        }
+        total++; if (runTest("Each extract empties exactly one slot and keeps the cross", ok)) passed++;
+    }
+
+    // Test 100: F2L is algs only on real scrambles — no pair falls back to the search,
+    // a stuck piece costs at most two extracts, and a pair reported as a table case
+    // is one alg from the table, no longer than the longest alg plus an AUF
+    {
+        size_t longest = 0;
+        for (const F2LAlgo& a : F2L_ALGS) longest = std::max(longest, parseSequence(a.moves).size());
+        bool ok = true;
+        int extracted = 0;
+        for (uint64_t seed = 100; seed < 160 && ok; seed++) {
+            CubeState s = CubeState::solved();
+            for (Move m : WCA::scramble(seed)) s = s.apply(m);
+            CrossResult cross = Cross::bestCross(s);
+            CubeState st = s.rotate(cross.hold);
+            for (Move m : cross.moves) st = st.apply(m);
+            for (const F2LPair& p : F2L::solve(st)) {
+                if (p.searched || p.extracted > 2) ok = false;
+                if (p.extracted == 0 && p.moves.size() > longest + 1) ok = false;
+                extracted += p.extracted;
+                for (Move m : p.moves) st = st.apply(m);
+            }
+            if (!F2L::isSolved(st)) ok = false;
+        }
+        // The Scrambles Must Exercise the Extract Path
+        if (extracted == 0) ok = false;
+        total++; if (runTest("F2L inserts every pair with an alg, extracting stuck pieces", ok)) passed++;
+    }
+
     // ─── CFOP: Last Layer Tables ──────────────────────────────────────────────────
 
-    // Test 99: the OLL table holds all 57 cases at every U angle plus solved, each alg's
+    // Test 101: the OLL table holds all 57 cases at every U angle plus solved, each alg's
     // own case is named after it, and every case in the table, set up by undoing an alg
     // after any U turn, comes back oriented with F2L untouched
     //
@@ -1516,7 +1562,7 @@ static bool runAllTests() {
         total++; if (runTest("OLL table has every case, names match algs, all solve", ok)) passed++;
     }
 
-    // Test 100: the PLL table holds all 21 cases at every pre and post U turn plus the
+    // Test 102: the PLL table holds all 21 cases at every pre and post U turn plus the
     // four U turns alone, each alg's own case is named after it, and every case solves
     // the cube outright from any U angle
     {
