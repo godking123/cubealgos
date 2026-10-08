@@ -1,18 +1,19 @@
-// A dependency-free HTTP server that owns one cube and exposes the solvers to the page
-#include "../CubeState/CubeAlgos.h"
-#include "../Scramblers/WCA.h"
-#include "../Solvers/KociembaNaive/Kociemba.h"
-#include "../Solvers/CFOP/PieceSearch.h"
-#include "../Solvers/CFOP/Cross/Cross.h"
-#include "../Solvers/CFOP/F2L/F2L.h"
-#include "../Solvers/CFOP/OLL/OLL.h"
-#include "../Solvers/CFOP/PLL/PLL.h"
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <unistd.h>
+// The engine behind the web front end, compiled to WebAssembly and run in a worker
+//
+// Each browser tab owns one session, the cube the page shows and its undo history.
+// The page sends a command name and URL-encoded parameters and gets back the same
+// JSON the old local HTTP simulator served, so nothing here reaches into the solvers
+// beyond their public calls
+#include "../../CubeState/CubeAlgos.h"
+#include "../../Scramblers/WCA.h"
+#include "../../Solvers/KociembaNaive/Kociemba.h"
+#include "../../Solvers/CFOP/PieceSearch.h"
+#include "../../Solvers/CFOP/Cross/Cross.h"
+#include "../../Solvers/CFOP/F2L/F2L.h"
+#include "../../Solvers/CFOP/OLL/OLL.h"
+#include "../../Solvers/CFOP/PLL/PLL.h"
+#include <emscripten/emscripten.h>
 #include <cstring>
-#include <fstream>
 #include <map>
 #include <sstream>
 
@@ -160,6 +161,33 @@ std::string cfop(const CubeState& start) {
     return out + "]}";
 }
 
+CubeState scrambled(const std::string& scramble) {
+    CubeState s = CubeState::solved();
+    std::istringstream in(scramble);
+    std::string tok;
+    while (in >> tok) s = s.apply(parseMove(tok));
+    return s;
+}
+
+// A timer solve looked at from its scramble alone, touching no session
+//
+// The cross on every colour shows what colour neutrality would have saved on this
+// scramble. The CFOP solve is the engine's own path, so its OLL and PLL cases are a
+// reference, not the cases the solver met after their own F2L
+std::string analyze(const std::string& scramble) {
+    CubeState s = scrambled(scramble);
+    std::string out = "{\"crosses\":[";
+    for (int c = 0; c < 6; c++) {
+        Orientation o = orientationWithBottom(c);
+        out += std::string(c ? "," : "") + "{\"color\":" + quoted(colorName(c))
+             + ",\"rotation\":" + quoted(rotationsTo(o))
+             + ",\"moves\":" + moves(Cross::solveCross(s.rotate(o))) + "}";
+    }
+    Session view;
+    view.state = s;
+    return out + "],\"cfop\":" + cfop(s) + ",\"state\":" + snapshot(view) + "}";
+}
+
 std::string handle(Session& ss, const std::string& cmd, std::map<std::string, std::string>& q) {
     auto snap = [&]() { return snapshot(ss); };
     auto err  = [](const std::string& m) { return "{\"error\":" + quoted(m) + "}"; };
@@ -245,80 +273,37 @@ std::string handle(Session& ss, const std::string& cmd, std::map<std::string, st
     }
     if (cmd == "cfop") return cfop(ss.state);
     if (cmd == "kociemba") return "{\"moves\":" + moves(Kociemba::solve(ss.state)) + "}";
+    // Timer commands, stateless: the cube a scramble reaches, and its analysis
+    if (cmd == "preview") { Session view; view.state = scrambled(q["scramble"]); return snapshot(view); }
+    if (cmd == "analyze") return analyze(q["scramble"]);
     return err("Unknown command: " + cmd);
-}
-
-std::string readFile(const char* path) {
-    std::ifstream f(path, std::ios::binary);
-    if (!f) return "";
-    std::stringstream ss; ss << f.rdbuf();
-    return ss.str();
-}
-
-void respond(int fd, const std::string& status, const std::string& type, const std::string& body) {
-    std::string h = "HTTP/1.1 " + status + "\r\nContent-Type: " + type + "\r\nContent-Length: "
-                  + std::to_string(body.size()) + "\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n";
-    std::string all = h + body;
-    size_t sent = 0;
-    while (sent < all.size()) {
-        ssize_t n = write(fd, all.data() + sent, all.size() - sent);
-        if (n <= 0) break;
-        sent += n;
-    }
 }
 
 } // namespace
 
-int main(int argc, char** argv) {
-    int port = argc > 1 ? std::atoi(argv[1]) : 8080;
-    std::cout << "Building tables..." << std::flush;
+static Session session;
+
+extern "C" {
+
+// Builds every table the commands use, once, before the first engine_call
+EMSCRIPTEN_KEEPALIVE void engine_init() {
     Kociemba::buildTables();
     F2L::buildTables();
     OLL::buildTables();
     PLL::buildTables();
-    std::cout << " done\n";
-
-    int server = socket(AF_INET, SOCK_STREAM, 0);
-    int yes = 1;
-    setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof yes);
-    sockaddr_in addr{};
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    addr.sin_port = htons(port);
-    if (bind(server, (sockaddr*)&addr, sizeof addr) < 0 || listen(server, 16) < 0) {
-        std::cerr << "Could not listen on port " << port << "\n";
-        return 1;
-    }
-    std::cout << "Simulator at http://localhost:" << port << "\n";
-
-    Session session;
-    while (true) {
-        int fd = accept(server, nullptr, nullptr);
-        if (fd < 0) continue;
-        std::string req;
-        char buf[4096];
-        while (req.find("\r\n\r\n") == std::string::npos) {
-            ssize_t n = read(fd, buf, sizeof buf);
-            if (n <= 0) break;
-            req.append(buf, n);
-        }
-        std::istringstream line(req);
-        std::string method, target;
-        line >> method >> target;
-
-        size_t qm = target.find('?');
-        std::string path = target.substr(0, qm);
-        if (path == "/" || path == "/index.html") {
-            std::string page = readFile("Simulator/index.html");
-            if (page.empty()) page = readFile("index.html");
-            if (page.empty()) respond(fd, "404 Not Found", "text/plain", "index.html not found, run from the repo root");
-            else respond(fd, "200 OK", "text/html; charset=utf-8", page);
-        } else if (path == "/api") {
-            auto q = query(qm == std::string::npos ? "" : target.substr(qm + 1));
-            respond(fd, "200 OK", "application/json", handle(session, q["cmd"], q));
-        } else {
-            respond(fd, "404 Not Found", "text/plain", "not found");
-        }
-        close(fd);
-    }
 }
+
+// Runs one command against the tab's session and returns its JSON, an {"error": ...}
+// object for a bad command or parameter. The string stays valid until the next call
+EMSCRIPTEN_KEEPALIVE const char* engine_call(const char* cmd, const char* params) {
+    static std::string out;
+    auto q = query(params);
+    try {
+        out = handle(session, cmd, q);
+    } catch (const std::exception& e) {
+        out = "{\"error\":" + quoted(e.what()) + "}";
+    }
+    return out.c_str();
+}
+
+} // extern "C"

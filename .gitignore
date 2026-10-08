@@ -12,6 +12,12 @@
 !*.html
 !*.png
 !*.svg
+!*.ts
+!*.tsx
+!*.mts
+!*.css
+!*.json
+!*.yml
 !.gitignore
 
 # specific excludes
@@ -20,4 +26,7 @@ CLAUDE.md
 **/cubealgo
 **/tests
 **/cfop-test
-**/simulator
+**/node_modules/
+Web/dist/
+Web/src/engine/engine.mjs
+Web/src/engine/engine.wasm

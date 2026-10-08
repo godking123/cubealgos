@@ -24,7 +24,7 @@ SCRAMBLERS = Scramblers/WCA.cc
 CORE_OBJS = $(addprefix $(BUILD)/,$(notdir $(CORE:.cc=.o) $(SOLVERS:.cc=.o) \
                                           $(SCRAMBLERS:.cc=.o)))
 
-ALL_OBJS = $(CORE_OBJS) $(BUILD)/Main.o $(BUILD)/Tests.o $(BUILD)/Server.o
+ALL_OBJS = $(CORE_OBJS) $(BUILD)/Main.o $(BUILD)/Tests.o
 
 .PHONY: all
 all: cubealgo tests
@@ -35,9 +35,24 @@ cubealgo: $(BUILD)/Main.o $(CORE_OBJS)
 tests: $(BUILD)/Tests.o $(CORE_OBJS)
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
-# The browser simulator, served from a local socket so the page can call the solvers
-simulator: $(BUILD)/Server.o $(CORE_OBJS)
-	$(CXX) $(CXXFLAGS) $^ -o $@
+# The same engine compiled to WebAssembly for the React front end in Web/, so the site
+# is static files and every visitor's solves run in their own browser. Needs emsdk
+EMXX = em++
+EMFLAGS = -std=c++17 -O3 -I. -fwasm-exceptions -sMODULARIZE -sEXPORT_ES6 \
+          -sENVIRONMENT=web,worker -sALLOW_MEMORY_GROWTH \
+          -sEXPORTED_FUNCTIONS=_engine_init,_engine_call -sEXPORTED_RUNTIME_METHODS=cwrap
+WASM = Web/src/engine/engine.mjs
+HEADERS = $(wildcard CubeState/*.h Scramblers/*.h Solvers/*.h Solvers/*/*.h Solvers/*/*/*.h)
+
+.PHONY: wasm web
+wasm: $(WASM)
+
+$(WASM): Web/engine/Engine.cc $(CORE) $(SOLVERS) $(SCRAMBLERS) $(HEADERS)
+	@mkdir -p $(dir $@)
+	$(EMXX) $(EMFLAGS) $(filter %.cc,$^) -o $@
+
+web: $(WASM)
+	cd Web && npm ci && npm run build
 
 $(BUILD)/%.o: %.cc | $(BUILD)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
@@ -72,9 +87,6 @@ $(BUILD)/%.o: Solvers/Roux/%.cc | $(BUILD)
 $(BUILD)/%.o: Scramblers/%.cc | $(BUILD)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-$(BUILD)/%.o: Simulator/%.cc | $(BUILD)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
 $(BUILD):
 	@mkdir -p $(BUILD)
 
@@ -86,4 +98,4 @@ test: tests
 
 .PHONY: clean
 clean:
-	rm -rf $(BUILD) cubealgo tests
+	rm -rf $(BUILD) cubealgo tests Web/src/engine/engine.mjs Web/src/engine/engine.wasm Web/dist
