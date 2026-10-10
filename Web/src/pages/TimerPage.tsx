@@ -43,6 +43,8 @@ export function TimerPage() {
         return timer.down(e.code);
       }
       if (e.key === 'Escape') return timer.cancel();
+      if (e.code === 'KeyF' && timer.phase === 'idle' && !e.ctrlKey && !e.metaKey && !e.altKey)
+        return timer.setSetting('bare', !timer.settings.bare);
       if (e.code !== 'Space') return;
       e.preventDefault();
       timer.down('Space');
@@ -87,20 +89,20 @@ export function TimerPage() {
   }[t.phase];
   return <>
     <div id="scrambleBar" className="tscramble">
-      <span className="lbl">Scramble</span>
       <span id="scrambleTokens">
         {t.scramble ? t.scramble.split(' ').map((m, i) => <span key={i} className="tok">{m}</span>) : <span className="tok done">generating...</span>}
       </span>
       <span className="sbtns">
         <button onClick={() => timer.newScramble()} disabled={!t.scramble || t.phase !== 'idle'}>New</button>
         <button onClick={() => navigator.clipboard?.writeText(t.scramble)} disabled={!t.scramble}>Copy</button>
+        <button className={t.settings.bare ? 'on' : ''} aria-pressed={t.settings.bare}
+                onClick={() => timer.setSetting('bare', !t.settings.bare)} title="Hide stats and solves (F)">Focus</button>
       </span>
     </div>
-    <main id="main" className="timer">
-      <TimerLeft />
+    <main id="main" className={'timer' + (t.settings.bare ? ' bare' : '')}>
       <section id="pad" ref={pad} className={'ph-' + t.phase}>
-        <div id="viewTag" className="hint">{hint}</div>
         <div className="clock">
+          <div className="hint">{hint}</div>
           <div className="digits" ref={digits} aria-live="off">0.00</div>
           {t.settings.splits && (
             <div className="stages">
@@ -108,7 +110,7 @@ export function TimerPage() {
                 const running = t.phase === 'running';
                 const done = running && i < t.liveSplits.length;
                 const cur = running && i === t.liveSplits.length;
-                const lastTimes = !running && t.phase === 'idle' && last ? stageTimes(last) : null;
+                const lastTimes = !running && t.phase === 'idle' && last && !t.settings.bare ? stageTimes(last) : null;
                 const split = running
                   ? (t.liveSplits[i] != null ? t.liveSplits[i] - (t.liveSplits[i - 1] ?? 0) : null)
                   : lastTimes ? lastTimes[i] : null;
@@ -118,17 +120,12 @@ export function TimerPage() {
               })}
             </div>
           )}
-          <div className="under">
-            <span>ao5 <b>{fmt(t.stats.current.ao5)}</b></span>
-            <span>ao12 <b>{fmt(t.stats.current.ao12)}</b></span>
-          </div>
           {last && t.phase === 'idle' && (
             <div className="quick">
               <button className={last.penalty === 'ok' ? 'on' : ''} onClick={() => timer.setPenalty(last.id, 'ok')}>OK</button>
               <button className={last.penalty === '+2' ? 'on' : ''} onClick={() => timer.setPenalty(last.id, '+2')}>+2</button>
               <button className={last.penalty === 'dnf' ? 'on' : ''} onClick={() => timer.setPenalty(last.id, 'dnf')}>DNF</button>
               <button onClick={() => { if (confirm('Delete the last solve?')) timer.deleteSolve(last.id); }} aria-label="Delete">&times;</button>
-              <button onClick={() => timer.open(last.id)}>Analyse &rarr;</button>
             </div>
           )}
         </div>
@@ -138,58 +135,9 @@ export function TimerPage() {
           </div>
         )}
       </section>
-      <SolveList />
+      {!t.settings.bare && <SolveList />}
     </main>
   </>;
-}
-
-function TimerLeft() {
-  const t = useTimer();
-  const st = t.stats;
-  const row = (name: string, cur: number | null, best: number | null) => (
-    <tr key={name}><th>{name}</th><td>{fmt(cur)}</td><td>{fmt(best)}</td></tr>
-  );
-  const s = t.settings;
-  return (
-    <aside id="left">
-      <SessionPicker />
-      <div className="blk">
-        <div className="lbl">Stats</div>
-        <table className="data stats">
-          <thead><tr><th /><th>Current</th><th>Best</th></tr></thead>
-          <tbody>
-            {row('single', st.current.single, st.bestSingle)}
-            {row('ao5', st.current.ao5, st.bestAo5)}
-            {row('ao12', st.current.ao12, st.bestAo12)}
-            {st.count >= 50 && row('ao50', st.current.ao50, st.bestAo50)}
-            {st.count >= 100 && row('ao100', st.current.ao100, st.bestAo100)}
-          </tbody>
-        </table>
-        <div className="kv">
-          <span>Solves <b>{st.count}</b></span>
-          <span>Mean <b>{fmt(st.mean)}</b></span>
-        </div>
-      </div>
-      <div className="blk">
-        <div className="lbl">Settings</div>
-        <Tg on={s.inspection} set={v => timer.setSetting('inspection', v)}>Inspection</Tg><br />
-        <Tg on={s.splits} set={v => timer.setSetting('splits', v)}>Stage splits</Tg><br />
-        <Tg on={s.hide} set={v => timer.setSetting('hide', v)}>Hide time</Tg><br />
-        <Tg on={s.focus} set={v => timer.setSetting('focus', v)}>Focus mode</Tg>
-        <label className="field">Hold
-          <select value={s.holdMs} onChange={e => timer.setSetting('holdMs', +e.target.value)}>
-            <option value={0}>Instant</option><option value={300}>0.3 s</option><option value={550}>0.55 s</option><option value={1000}>1 s</option>
-          </select>
-        </label>
-        <label className="field">Cross
-          <select value={s.cross} onChange={e => timer.setSetting('cross', e.target.value as typeof s.cross)}>
-            {CROSS_COLORS.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </label>
-      </div>
-      {!t.saved && <div className="blk"><p className="warn">Storage blocked: solves won't be saved.</p></div>}
-    </aside>
-  );
 }
 
 function Tg({ on, set, children }: { on: boolean; set: (v: boolean) => void; children: string }) {
@@ -199,17 +147,44 @@ function Tg({ on, set, children }: { on: boolean; set: (v: boolean) => void; chi
 export function SessionPicker() {
   const t = useTimer();
   return (
-    <div className="blk">
-      <div className="lbl">Session</div>
-      <div className="row">
-        <select value={t.sessionId} onChange={e => timer.selectSession(e.target.value)} aria-label="Session" style={{ flex: 1 }}>
-          {t.sessions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
-        <button onClick={() => timer.addSession()} title="New session" aria-label="New session">+</button>
-        <button onClick={() => { const n = prompt('Session name', t.sessionName()); if (n) timer.renameSession(n); }} title="Rename session">Ren</button>
-        <button onClick={() => { if (confirm(`Delete "${t.sessionName()}" and its ${t.solves.length} solves?`)) timer.deleteSession(); }} title="Delete session">Del</button>
-      </div>
+    <div className="row">
+      <select value={t.sessionId} onChange={e => timer.selectSession(e.target.value)} aria-label="Session" style={{ flex: 1 }}>
+        {t.sessions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+      </select>
+      <button onClick={() => timer.addSession()} title="New session" aria-label="New session">+</button>
     </div>
+  );
+}
+
+// Settings and session management are set once and rarely touched, so they stay
+// folded away below the solve list instead of competing with it
+function Settings() {
+  const t = useTimer();
+  const s = t.settings;
+  return (
+    <details className="blk settings">
+      <summary>Settings</summary>
+      <div className="opts">
+        <Tg on={s.inspection} set={v => timer.setSetting('inspection', v)}>Inspection</Tg>
+        <Tg on={s.splits} set={v => timer.setSetting('splits', v)}>Stage splits</Tg>
+        <Tg on={s.hide} set={v => timer.setSetting('hide', v)}>Hide time</Tg>
+        <Tg on={s.focus} set={v => timer.setSetting('focus', v)}>Fade while solving</Tg>
+      </div>
+      <label className="field">Hold
+        <select value={s.holdMs} onChange={e => timer.setSetting('holdMs', +e.target.value)}>
+          <option value={0}>Instant</option><option value={300}>0.3 s</option><option value={550}>0.55 s</option><option value={1000}>1 s</option>
+        </select>
+      </label>
+      <label className="field">Cross
+        <select value={s.cross} onChange={e => timer.setSetting('cross', e.target.value as typeof s.cross)}>
+          {CROSS_COLORS.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+      </label>
+      <div className="row session-ops">
+        <button onClick={() => { const n = prompt('Session name', t.sessionName()); if (n) timer.renameSession(n); }}>Rename session</button>
+        <button onClick={() => { if (confirm(`Delete "${t.sessionName()}" and its ${t.solves.length} solves?`)) timer.deleteSession(); }}>Delete session</button>
+      </div>
+    </details>
   );
 }
 
@@ -231,8 +206,25 @@ function SolveList() {
       </tr>,
     );
   }
+  const st = t.stats;
+  const row = (name: string, cur: number | null, best: number | null) => (
+    <tr key={name}><th>{name}</th><td>{fmt(cur)}</td><td>{fmt(best)}</td></tr>
+  );
   return (
     <aside id="right">
+      <div className="blk">
+        <SessionPicker />
+        <table className="data stats">
+          <thead><tr><th /><th>Current</th><th>Best</th></tr></thead>
+          <tbody>
+            {row('single', st.current.single, st.bestSingle)}
+            {row('ao5', st.current.ao5, st.bestAo5)}
+            {row('ao12', st.current.ao12, st.bestAo12)}
+            {st.count >= 100 && row('ao100', st.current.ao100, st.bestAo100)}
+          </tbody>
+        </table>
+        <div className="kv"><span>Mean <b>{fmt(st.mean)}</b></span></div>
+      </div>
       <div className="blk grow list">
         <div className="lbl">Solves · {n}</div>
         {n ? (
@@ -245,9 +237,8 @@ function SolveList() {
           </div>
         ) : <div className="empty">No solves yet.</div>}
       </div>
-      <div className="blk">
-        <a className="wide-btn link" href="#/stats">Stats &rarr;</a>
-      </div>
+      <Settings />
+      {!t.saved && <p className="warn">Storage blocked: solves won't be saved.</p>}
     </aside>
   );
 }

@@ -15,9 +15,10 @@ export interface Settings {
   splits: boolean;       // Mark Cross, F2L, OLL While Running
   hide: boolean;         // No Running Clock
   focus: boolean;        // Panels Fade While Solving
+  bare: boolean;         // Focus Mode: Clock and Scramble Only
   cross: CrossColor;     // Colour the Analysis Measures Against
 }
-const DEFAULTS: Settings = { inspection: false, holdMs: 300, splits: false, hide: false, focus: true, cross: 'white' };
+const DEFAULTS: Settings = { inspection: false, holdMs: 300, splits: false, hide: false, focus: true, bare: false, cross: 'white' };
 const INSPECTION = 15000, INSPECTION_DNF = 17000;
 
 const local = {
