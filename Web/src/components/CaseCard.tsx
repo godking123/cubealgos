@@ -97,10 +97,8 @@ function PllArrows({ s }: { s: Snap }) {
       {lines.map(([a, b, both], k) => {
         const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy), ux = dx / len * 7, uy = dy / len * 7;
         const d = `M${a[0] + ux} ${a[1] + uy}L${b[0] - ux} ${b[1] - uy}`;
-        return <g key={k}>
-          <path d={d} stroke="#fff" strokeWidth={5} />
-          <path d={d} stroke="#000" strokeWidth={2.2} markerEnd="url(#ah)" markerStart={both ? 'url(#ah)' : undefined} />
-        </g>;
+        return <path key={k} d={d} stroke="#000" strokeWidth={2.4} strokeLinecap="round"
+                     markerEnd="url(#ah)" markerStart={both ? 'url(#ah)' : undefined} />;
       })}
     </svg>
   );

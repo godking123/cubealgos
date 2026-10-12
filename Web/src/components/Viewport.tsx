@@ -10,8 +10,6 @@ export function Viewport() {
 
   const { snap, plan, busy, playing } = s;
   const pieces = snap && s.opts.dim ? s.stagePieces() : new Set<string>();
-  const marked = (p: { kind: string; idx: number } | null, kind: string, idx: number) => !!p && p.kind === kind && p.idx === idx;
-  const pickMsg = s.pickMessage();
   const sw = (c: number) => <i className="sw" style={{ '--c': COLOR_VARS[c], '--p': PATTERN_VARS[c] } as CSSProperties} />;
   return (
     <section id="viewport" ref={vp}>
@@ -26,10 +24,8 @@ export function Viewport() {
               else if (kind === 'e') on = pieces.has('e' + snap.ep[idx]);
             }
             const colors = snap ? cubieColors(snap, kind, idx) : [null, null, null, null, null, null];
-            const cls = 'cubie' + (on ? '' : ' dim') + (marked(s.picked, kind, idx) || marked(s.hover, kind, idx) ? ' picked' : '');
             return (
-              <div key={i} className={cls} ref={el => sim.setCubieEl(i, el)}
-                   onClick={e => { e.stopPropagation(); sim.pick(kind, idx); }}>
+              <div key={i} className={'cubie' + (on ? '' : ' dim')} ref={el => sim.setCubieEl(i, el)}>
                 {FACE_CLASS.map((f, fi) => {
                   const c = colors[fi];
                   return <div key={f} className={'face ' + f + (c != null ? ' sticker' : '')}
@@ -52,7 +48,6 @@ export function Viewport() {
         <div id="prompt">{plan ? 'Space to play' : snap.solved ? 'Space to scramble' : 'Space to solve'}</div>
       )}
       {!snap && <div id="prompt">{s.statusText === 'Offline' ? 'Engine failed to load' : 'Loading...'}</div>}
-      {pickMsg && <div id="pickMsg">{pickMsg}</div>}
       <CaseCard />
       <div className="zoomctl">
         <button onClick={() => sim.setZoom(s.zoom / 1.2)} aria-label="Zoom out">&minus;</button>

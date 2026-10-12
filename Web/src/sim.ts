@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { api } from './engine';
 import {
-  AXIS_OF_FACE, CORNER_NAMES, COLOR_NAMES, CUBIES, EDGE_NAMES, FACE_LETTER, GAP,
+  AXIS_OF_FACE, CORNER_NAMES, CUBIES, GAP,
   HOME_ORBIT, MOVE_RE, PEEK_OF_FACE, ROT_FACE, SCRAMBLE_TEMPO, clampX, ease,
   faceVisible, tempoOf, wrap, type Kind, type Snap,
 } from './cube';
@@ -15,11 +15,9 @@ interface Opts {
   dim: boolean; grey: boolean; card: boolean; cam: boolean; idle: boolean; rgb: boolean; modern: boolean;
 }
 export type OptKey = 'dim' | 'grey' | 'card' | 'cam' | 'idle' | 'rgb' | 'modern';
-interface Piece { kind: Kind; idx: number }
 interface Err { error?: string }
 
 export const STAGE_NAMES: Record<Stage, string> = { cross: 'Cross', f2l: 'F2L', oll: 'OLL', pll: 'PLL', done: 'Solved' };
-const LOG_LIMIT = 400;  // Oldest Lines Drop Past This
 const ZOOM_MIN = 0.4, ZOOM_MAX = 2.2;  // User Zoom Over the Fitted Size
 const QS = new URLSearchParams(location.search);
 const store = {
@@ -27,13 +25,6 @@ const store = {
   set(k: string, v: string) { try { localStorage.setItem(k, v); } catch { /* Private Window */ } },
 };
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
-
-export const HELP = [
-  'moves: R U R\' U\' x y2 ...',
-  'scramble | reset | undo | back | plan | step | play | solve | apply | clear',
-  'bestcross | pair [DFR|DLF|DBL|DRB] | f2l | oll | pll | kociemba',
-  'method cfop|kociemba | tempo 0-100 | view reset | modern | colour | grey | card | help',
-];
 
 // The simulator's state and every action on it, outside React
 //
@@ -58,13 +49,8 @@ class Sim {
   plan: Plan | null = null;
   playing = false;
   busy = false;
-  solves = 0;
   scrambleMoves: string[] = [];
   scramblePos = 0;
-  logLines: { id: number; text: string; cls?: string }[] = [];
-  private logId = 0;
-  picked: Piece | null = null;
-  hover: Piece | null = null;
   frontAway = false;
 
   // Viewport Elements, Set While It Is Mounted
@@ -74,10 +60,6 @@ class Sim {
   private fitZoom = 1;
   zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, +(store.get('zoom') || 1) || 1));
 
-  log(text: string, cls?: string) {
-    this.logLines = [...this.logLines.slice(-(LOG_LIMIT - 1)), { id: this.logId++, text, cls }];
-    this.notify();
-  }
   status(text: string) { this.statusText = text; this.notify(); }
 
   // Camera
@@ -321,20 +303,6 @@ class Sim {
   nextToken() { return this.plan && this.plan.pos < this.plan.total ? this.planTokens()[this.plan.pos] : null; }
   following() { return !!this.plan && (this.playing || this.plan.pos > 0); }
 
-  pick(kind: Kind, idx: number) {
-    if (this.cam.moved) return;
-    this.picked = (this.picked && this.picked.kind === kind && this.picked.idx === idx) ? null : { kind, idx };
-    this.notify();
-  }
-  pickMessage() {
-    const p = this.picked, s = this.snap;
-    if (!p || !s) return null;
-    if (p.kind === 'c') return `cp[${p.idx}] ${CORNER_NAMES[p.idx]} <- ${CORNER_NAMES[s.cp[p.idx]]} twist ${s.co[p.idx]}`;
-    if (p.kind === 'e') return `ep[${p.idx}] ${EDGE_NAMES[p.idx]} <- ${EDGE_NAMES[s.ep[p.idx]]} flip ${s.eo[p.idx]}`;
-    return `centre ${FACE_LETTER[p.idx]} ${COLOR_NAMES[s.faces[p.idx]]}`;
-  }
-  setHover(p: Piece | null) { this.hover = p; this.notify(); }
-
   private animateTurn(tok: string) {
     if (this.opts.turn <= 0) return Promise.resolve();
     const isRot = 'xyz'.includes(tok[0]);
@@ -369,33 +337,32 @@ class Sim {
     this.pumping = true;
     while (this.queue.length) {
       const { fn, res } = this.queue.shift()!;
-      try { await fn(); } catch (e) { this.log('error: ' + (e instanceof Error ? e.message : e), 'err'); }
+      try { await fn(); } catch (e) { this.status('Error: ' + (e instanceof Error ? e.message : e)); }
       res();
     }
     this.pumping = false;
   }
 
   // Moves made by hand invalidate a plan, since it was computed for the state before them
-  async applyTokens(tokens: string[], { quiet = false, keepPlan = false, onEach = null as null | (() => void) } = {}) {
+  async applyTokens(tokens: string[], { keepPlan = false, onEach = null as null | (() => void) } = {}) {
     if (this.busy || !tokens.length) return false;
     const bad = tokens.find(t => !MOVE_RE.test(t));
-    if (bad) { this.log('unknown move: ' + bad, 'err'); return false; }
+    if (bad) { this.status('Unknown move ' + bad); return false; }
     this.busy = true;
     try {
-      if (!keepPlan && this.plan) { this.plan = null; this.log('plan dropped: manual move'); }
+      if (!keepPlan && this.plan) this.plan = null;
       if (this.opts.turn > 0) {
         for (const t of tokens) {
           const [res] = await Promise.all([api<Snap & Err>('apply', { seq: t }), this.animateTurn(t)]);
-          if (res.error) { this.log(res.error, 'err'); this.placeAll(); return false; }
+          if (res.error) { this.status(res.error); this.placeAll(); return false; }
           this.snap = res; this.placeAll(); this.render();
           if (onEach) onEach();
         }
       } else {
         const res = await api<Snap & Err>('apply', { seq: tokens.join(' ') });
-        if (res.error) { this.log(res.error, 'err'); return false; }
+        if (res.error) { this.status(res.error); return false; }
         this.snap = res; this.render();
       }
-      if (!quiet) this.log(tokens.join(' '));
       return true;
     } finally { this.busy = false; }
   }
@@ -415,12 +382,11 @@ class Sim {
         await this.waitCam(Math.min(1200, this.opts.turn * 3), face);
       }
     }
-    if (!await this.applyTokens([t], { quiet: true, keepPlan: true })) return false;
+    if (!await this.applyTokens([t], { keepPlan: true })) return false;
     if (!this.plan) return false;  // Cleared While the Move Was in Flight
     this.plan.pos++;
     if (this.plan.pos >= this.plan.total) {
       this.plan = null;
-      if (this.snap!.solved) { this.solves++; this.log('solved', 'ok'); }
     }
     this.render();
     return true;
@@ -446,40 +412,19 @@ class Sim {
     if (!this.plan) return;
     const rest = this.planTokens().slice(this.plan.pos), saveTurn = this.opts.turn;
     this.opts.turn = 0;
-    const ok = await this.applyTokens(rest, { quiet: true, keepPlan: true });
+    const ok = await this.applyTokens(rest, { keepPlan: true });
     this.opts.turn = saveTurn;
     if (ok) {
       this.plan = null;
-      if (this.snap!.solved) this.solves++;
-      this.log('applied: ' + rest.join(' ')); this.render();
+      this.render();
     }
   };
 
-  private fail(res: Err) { if (res.error) { this.log(res.error, 'err'); return true; } return false; }
-  private found(label: string, moves: string[], caseName = '') {
-    this.setPlan([{ label, tokens: moves, caseName }]);
-    this.log(`${label}: ${moves.length ? moves.join(' ') : '(nothing)'}`, 'ok');
-  }
-  bestCross = async () => {
-    const r = await api<Err & { color: string; rotation: string; moves: string[] }>('bestcross'); if (this.fail(r)) return;
-    const rot = r.rotation ? r.rotation.split(' ') : [];
-    this.found(`${r.color} cross`, [...rot, ...r.moves]);
-  };
-  insertPair = async (slot: number) => {
-    const r = await api<Err & { moves: string[] }>('pair', { slot }); if (this.fail(r)) return;
-    this.found(`${CORNER_NAMES[4 + slot]} pair`, r.moves);
-  };
-  finishF2L = async () => {
-    const r = await api<Err & { pairs: { slot: number; moves: string[] }[] }>('f2l'); if (this.fail(r)) return;
-    this.setPlan(r.pairs.map(p => ({ label: `${CORNER_NAMES[4 + p.slot]} pair`, tokens: p.moves })));
-    for (const p of r.pairs) this.log(`${CORNER_NAMES[4 + p.slot]} pair: ${p.moves.join(' ')}`, 'ok');
-  };
-  oll = async () => { const r = await api<Err & { case: string; moves: string[] }>('oll'); if (this.fail(r)) return; this.found('OLL', r.moves, r.case); };
-  pll = async () => { const r = await api<Err & { case: string; moves: string[] }>('pll'); if (this.fail(r)) return; this.found('PLL', r.moves, r.case); };
+  private fail(res: Err) { if (res.error) { this.status(res.error); return true; } return false; }
   kociemba = async () => {
     this.status('Searching');
     const r = await api<Err & { moves: string[] }>('kociemba'); if (this.fail(r)) return;
-    this.found('Kociemba', r.moves);
+    this.setPlan([{ label: 'Kociemba', tokens: r.moves }]);
     return r.moves.length;
   };
 
@@ -494,8 +439,6 @@ class Sim {
     if (this.fail(r)) return false;
     const rot = r.rotation ? r.rotation.split(' ') : [];
     this.setPlan(r.steps.map((s, i) => ({ label: s.label, tokens: i === 0 ? [...rot, ...s.moves] : s.moves, caseName: s.case })));
-    this.log(`cfop: ${this.plan ? this.plan.total : 0} moves`, 'ok');
-    for (const s of r.steps) this.log(`  ${s.label}: ${s.moves.length ? s.moves.join(' ') : '(done)'}`);
     return true;
   };
   playSolution = async () => {
@@ -511,41 +454,21 @@ class Sim {
     const r = await api<Err & { moves: string[] }>('wca'); if (this.fail(r)) return;
     this.snap = await api<Snap>('reset'); this.plan = null;
     this.scrambleMoves = r.moves; this.scramblePos = 0; this.render();
-    this.log('scramble: ' + r.moves.join(' '), 'ok'); this.status('Scrambling');
     const save = { turn: this.opts.turn, gap: this.opts.gap };
     Object.assign(this.opts, this.opts.turn ? SCRAMBLE_TEMPO : { turn: 0, gap: 0 });
-    await this.applyTokens(r.moves, { quiet: true, onEach: () => { this.scramblePos++; this.notify(); } });
+    await this.applyTokens(r.moves, { onEach: () => { this.scramblePos++; this.notify(); } });
     Object.assign(this.opts, save);
     this.scramblePos = this.scrambleMoves.length; this.render();
   };
-  // A timer solve's scramble on the cube, applied at once, with its CFOP solution loaded
-  watch(moves: string[]) {
-    this.playing = false;
-    this.queue.splice(0).forEach(q => q.res());
-    this.run(async () => {
-      const r = await api<Snap & Err>('reset');
-      if (this.fail(r)) return;
-      this.snap = r; this.plan = null;
-      this.scrambleMoves = moves; this.scramblePos = moves.length;
-      const save = this.opts.turn;
-      this.opts.turn = 0;
-      await this.applyTokens(moves, { quiet: true });
-      this.opts.turn = save;
-      if (this.method !== 'cfop') this.setMethod('cfop');
-      this.log('timer solve: ' + moves.join(' '), 'ok');
-      await this.planSolution();
-    });
-  }
   reset = async () => {
     if (this.busy || this.playing) return;
     this.snap = await api<Snap>('reset'); this.plan = null; this.scrambleMoves = [];
-    this.render(); this.log('reset');
+    this.render();
   };
   undo = async () => {
     if (this.busy || this.playing) return;
     this.plan = null; this.snap = await api<Snap>('undo'); this.render();
   };
-  clearPlan() { this.plan = null; this.render(); }
 
   // Space: scramble a solved cube, load the sequence for a scrambled one, then play
   // or pause it; the arrows step through it one move at a time
@@ -562,66 +485,13 @@ class Sim {
     this.render();
   }
 
-  async setState(arrays: Record<'cp' | 'co' | 'ep' | 'eo', string>) {
-    const r = await api<Snap & Err>('set', arrays);
-    if (r.error) return r.error;
-    this.snap = r; this.plan = null; this.render(); this.log('state edited');
-    return null;
-  }
-
-  setMethod(m: Method) { this.method = m; this.plan = null; this.render(); this.log('method: ' + m); }
+  setMethod(m: Method) { this.method = m; this.plan = null; this.render(); }
   setOpt(key: OptKey, on: boolean) { this.opts[key] = on; store.set(key, on ? '1' : '0'); this.notify(); }
   setTempo(v: number) {
     v = Math.max(0, Math.min(100, Math.round(v)));
     const t = tempoOf(v); this.opts.turn = t.turn; this.opts.gap = t.gap; this.tempo = v;
     store.set('tempo', String(v)); this.notify();
   }
-
-  runCommand = async (line: string) => {
-    const text = line.trim();
-    if (!text) return;
-    const words = text.split(/\s+/);
-    const cmd = words[0].toLowerCase(), arg = (words[1] || '').toLowerCase();
-    if (words.every(w => MOVE_RE.test(w))) { this.manual(words); return; }
-    this.log(text);
-    if (!this.snap) { this.log('engine still loading', 'err'); return; }
-    switch (cmd) {
-      case 'scramble': return this.run(this.scramble);
-      case 'reset': return this.run(this.reset);
-      case 'undo': return this.run(this.undo);
-      case 'back': return this.run(this.back);
-      case 'solve': return this.run(this.playSolution);
-      case 'plan': return this.run(this.planSolution);
-      case 'step': case 'next': return this.run(this.step);
-      case 'play': return this.impulse();
-      case 'apply': case 'finish': return this.run(this.applyAll);
-      case 'clear': return this.clearPlan();
-      case 'bestcross': return this.bestCross();
-      case 'pair': {
-        const k = CORNER_NAMES.indexOf(arg.toUpperCase()) - 4;
-        return this.insertPair(k >= 0 && k < 4 ? k : [0,1,2,3].find(s => !this.snap!.pairs[s]) ?? 0);
-      }
-      case 'f2l': return this.finishF2L();
-      case 'oll': return this.oll();
-      case 'pll': return this.pll();
-      case 'kociemba': return this.kociemba();
-      case 'method':
-        if (arg === 'cfop' || arg === 'kociemba') return this.setMethod(arg);
-        this.log('method cfop | kociemba', 'err'); return;
-      case 'tempo': {
-        const v = +arg;
-        if (arg !== '' && v >= 0 && v <= 100) this.setTempo(v); else this.log('tempo 0 (learn) to 100 (instant)', 'err');
-        return;
-      }
-      case 'view': return this.viewReset();
-      case 'modern': return this.setOpt('modern', !this.opts.modern);
-      case 'colour': case 'color': return this.setOpt('rgb', !this.opts.rgb);
-      case 'grey': case 'gray': return this.setOpt('grey', !this.opts.grey);
-      case 'card': return this.setOpt('card', !this.opts.card);
-      case 'help': HELP.forEach(l => this.log(l)); return;
-      default: this.log(`unknown command: ${cmd}. type help`, 'err');
-    }
-  };
 
   // Keyboard: face letters turn (Shift for prime), x y z rotate, Space drives the solve,
   // arrows step, Escape drops the plan
@@ -655,12 +525,10 @@ class Sim {
     this.opts.grey = store.get('grey') === '1';
     if (QS.get('method') === 'kociemba') this.method = 'kociemba';
     if (QS.get('orbit')) { const [x, y] = QS.get('orbit')!.split(',').map(Number); this.orbit = { x, y }; }
-        this.status('Loading engine');
+    this.status('Loading engine');
     const s = await api<Snap & Err>('state');
-    if (s.error) { this.status('Offline'); this.log(s.error, 'err'); return; }
+    if (s.error) { this.status('Offline'); return; }
     this.snap = s; this.online = true; this.render();
-    this.log('ready. type help for commands');
-    for (const c of (QS.get('run') || '').split(';')) if (c.trim()) await this.runCommand(c);
   }
 }
 

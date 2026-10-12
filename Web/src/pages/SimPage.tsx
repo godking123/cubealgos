@@ -1,8 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { pad3, tempoOf } from '../cube';
 import { STAGE_NAMES, sim, useSim, type Method, type OptKey } from '../sim';
 import { Viewport } from '../components/Viewport';
-import { StateArrays } from '../components/StateArrays';
 
 // The 3D simulator: scramble, plan a CFOP or Kociemba solve, and play it move by move
 export function SimPage() {
@@ -70,45 +69,8 @@ function LeftPanel() {
             <button key={r + suf} onClick={() => sim.manual([r + suf])}>{r + suf}</button>
           )))}
         </div>
-        <CommandInput />
       </div>
-      <div className="blk grow"><Log /></div>
     </aside>
-  );
-}
-
-function CommandInput() {
-  const [value, setValue] = useState('');
-  const hist = useRef<{ lines: string[]; pos: number }>({ lines: [], pos: 0 });
-  return (
-    <input type="text" spellCheck={false} autoComplete="off" placeholder="R U R' U' or help"
-           aria-label="Moves or command" style={{ marginTop: 6 }} value={value}
-           onChange={e => setValue(e.target.value)}
-           onKeyDown={e => {
-             const h = hist.current;
-             if (e.key === 'Enter') {
-               if (value.trim()) { h.lines.push(value); h.pos = h.lines.length; }
-               setValue(''); sim.runCommand(value);
-             } else if (e.key === 'ArrowUp') {
-               if (h.pos > 0) { h.pos--; setValue(h.lines[h.pos]); }
-               e.preventDefault();
-             } else if (e.key === 'ArrowDown') {
-               if (h.pos < h.lines.length) { h.pos++; setValue(h.lines[h.pos] || ''); }
-               e.preventDefault();
-             }
-           }} />
-  );
-}
-
-function Log() {
-  const s = useSim();
-  const ref = useRef<HTMLDivElement>(null);
-  const last = s.logLines.length ? s.logLines[s.logLines.length - 1].id : -1;
-  useLayoutEffect(() => { if (ref.current) ref.current.scrollTop = ref.current.scrollHeight; }, [last]);
-  return (
-    <div id="log" ref={ref}>
-      {s.logLines.map(l => <div key={l.id} className={l.cls}>{l.text}</div>)}
-    </div>
   );
 }
 
@@ -131,9 +93,9 @@ function RightPanel() {
         <div className="lbl">Next</div>
         <div className={'val huge' + (nt && 'xyz'.includes(nt[0]) ? ' rot' : '')} id="stNext">{nt || '---'}</div>
       </div>
-      <div className="blk pair">
-        <div><div className="lbl">Step</div><div className="val">{step}</div></div>
-        <div><div className="lbl">Solves</div><div className="val">{pad3(s.solves)}</div></div>
+      <div className="blk">
+        <div className="lbl">Step</div>
+        <div className="val">{step}</div>
       </div>
       <div className="blk grow">
         <div className="lbl">Sequence</div>
@@ -153,7 +115,6 @@ function RightPanel() {
           </div>
         </details>
       </div>
-      <div className="blk"><StateArrays /></div>
       <div className="blk">
         <button id="inputCtl" disabled={!snap} onClick={() => sim.impulse()}>{mode}</button>
         <div className="row ctl" style={{ marginTop: 8 }}>

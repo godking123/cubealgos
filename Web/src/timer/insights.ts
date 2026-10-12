@@ -39,6 +39,13 @@ export function stageSummary(solves: Solve[]): StageSummary | null {
 const s1 = (ms: number) => (ms / 1000).toFixed(2) + ' s';
 const pct = (x: number) => Math.round(x * 100) + '%';
 
+// Coaching
+//
+// sessionInsights and solveInsights are not shown anywhere for now. They lean on rules
+// of thumb (TYPICAL_SHARE, what a "good" cross is) rather than anything measured from
+// the solve, so they read as advice the data cannot back. Kept for a later, more
+// careful version
+
 // What to work on across a session, most time to gain first
 export function sessionInsights(solves: Solve[], color: CrossColor): Insight[] {
   const out: Insight[] = [];

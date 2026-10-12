@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { timer, useTimer } from '../timer/timer';
 import { STAGES, fmt } from '../timer/stats';
-import { OPPOSITE, TYPICAL_SHARE, crossLook, sessionInsights, stageSummary } from '../timer/insights';
+import { OPPOSITE, crossLook, stageSummary } from '../timer/insights';
 import { CrossBars, Histogram, SplitBars, TrendChart } from '../components/Charts';
-import { InsightList } from '../components/SolveDetail';
 
-const COACH_TIPS = 3;  // Biggest Wins Only
 const RANGES = [{ n: 50, name: 'Last 50' }, { n: 100, name: 'Last 100' }, { n: 0, name: 'All' }];
 
 function download(name: string, text: string) {
@@ -15,7 +13,8 @@ function download(name: string, text: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-// Session statistics and coaching: where the time goes and what to practise next
+// Session statistics: times over the session, and on request the spread, stage splits
+// and optimal cross lengths
 export function StatsPage() {
   const t = useTimer();
   const [range, setRange] = useState(100);
@@ -36,7 +35,6 @@ export function StatsPage() {
   const avgLen = Object.fromEntries(['white', 'yellow', 'green', 'blue', 'red', 'orange'].map(c => [c,
     analysed.length ? analysed.reduce((a, s) => a + s.analysis!.crosses.find(x => x.color === c)!.moves.length, 0) / analysed.length : 0]));
   const avg = (f: (l: ReturnType<typeof crossLook>) => number) => looks.length ? looks.reduce((a, l) => a + f(l), 0) / looks.length : 0;
-  const insights = sessionInsights(t.solves, color);
   const busy = t.analyzing.total > 0 && t.analyzing.done < t.analyzing.total;
   const tile = (label: string, v: number | null, sub?: string) => (
     <div className="tile"><div className="lbl">{label}</div><div className="tv">{fmt(v)}</div>{sub && <div className="ts">{sub}</div>}</div>
@@ -69,21 +67,16 @@ export function StatsPage() {
             {tile('Mean', st.mean, `σ ${fmt(st.sd)}`)}
           </div>
 
-          <div className="panel span2">
+          <div className="panel wide">
             <div className="ph">
               <div><div className="lbl">Times</div><div className="legend">
-                <span><i className="k dot" />single</span><span><i className="k s1" />ao5</span><span><i className="k s2" />ao12</span>
+                <span><i className="k dot" />single</span><span><i className="k s1" />ao5</span><span><i className="k s2" />ao12</span>{st.dnfs > 0 && <span><b className="k-dnf">×</b>DNF</span>}
               </div></div>
               <div className="seg-ctl" role="group" aria-label="Range">
                 {RANGES.map(r => <button key={r.n} className={range === r.n ? 'on' : ''} onClick={() => setRange(r.n)}>{r.name}</button>)}
               </div>
             </div>
             <TrendChart results={st.results.slice(from)} ao5={st.ao5.slice(from)} ao12={st.ao12.slice(from)} offset={from} />
-          </div>
-
-          <div className="panel coach">
-            <div className="lbl">What to work on</div>
-            <InsightList items={insights.slice(0, COACH_TIPS)} />
           </div>
 
           <button className="wide-btn more" onClick={() => setMore(!more)} aria-expanded={more}>
@@ -101,14 +94,14 @@ export function StatsPage() {
               {splits ? <>
                 <SplitBars rows={[{ label: 'Your average', times: splits.avg }]} />
                 <table className="data">
-                  <thead><tr><th>Stage</th><th>Avg</th><th>Best</th><th>Share</th><th>Typical</th></tr></thead>
+                  <thead><tr><th>Stage</th><th>Avg</th><th>Best</th><th>Share</th></tr></thead>
                   <tbody>{STAGES.map((s, i) => (
                     <tr key={s}><td>{s}</td><td>{fmt(splits.avg[i])}</td><td>{fmt(splits.best[i])}</td>
-                      <td className={splits.share[i] - TYPICAL_SHARE[i] > 0.04 ? 'worse' : ''}>{Math.round(splits.share[i] * 100)}%</td>
-                      <td>{Math.round(TYPICAL_SHARE[i] * 100)}%</td></tr>
+                      <td>{Math.round(splits.share[i] * 100)}%</td></tr>
                   ))}</tbody>
                 </table>
-              </> : <div className="empty">Turn on stage splits in the timer.</div>}
+                <p className="note">From your taps while solving, over {splits.n} solves with splits</p>
+              </> : <div className="empty">Turn on stage splits in the timer settings, then tap once as you finish the cross, F2L and OLL.</div>}
             </div>
 
             <div className="panel">

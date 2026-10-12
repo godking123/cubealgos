@@ -41,15 +41,14 @@ export function TrendChart({ results, ao5, ao12, offset = 0 }:
   const H = 240, L = 46, R = 14, T = 12, B = 26;
   const fin = results.filter(x => x !== DNF);
   if (!fin.length) return <div ref={ref} className="empty">No timed solves yet</div>;
-  const sorted = [...fin].sort((a, b) => a - b), median = sorted[Math.floor(sorted.length / 2)];
-  // A Single Freak Time Would Flatten the Rest, So the Top Is Capped
-  const cap = Math.max(median * 2.2, sorted[0] + 1000);
-  const hi0 = Math.min(sorted[sorted.length - 1], cap), lo0 = sorted[0];
+  // Full range, never capped: a clipped slow single would leave the ao5 and ao12
+  // lines jumping for no visible reason
+  const hi0 = Math.max(...fin), lo0 = Math.min(...fin);
   const step = niceStep(Math.max(500, hi0 - lo0), 4);
   const lo = Math.max(0, Math.floor(lo0 / step) * step), hi = Math.ceil(hi0 / step) * step + (hi0 === lo ? step : 0);
   const n = results.length, iw = Math.max(1, w - L - R), ih = H - T - B;
   const x = (i: number) => L + (n === 1 ? iw / 2 : (i / (n - 1)) * iw);
-  const y = (v: number) => T + ih - ((Math.min(v, hi) - lo) / (hi - lo)) * ih;
+  const y = (v: number) => T + ih - ((v - lo) / (hi - lo)) * ih;
   const line = (arr: (number | null)[]) => {
     let d = '', pen = false;
     arr.forEach((v, i) => {
@@ -78,9 +77,9 @@ export function TrendChart({ results, ao5, ao12, offset = 0 }:
           <text x={L - 8} y={y(v) + 4} textAnchor="end" className="axis">{secs(v)}</text>
         </g>)}
         {xTicks.map(i => <text key={i} x={x(i)} y={H - 6} textAnchor="middle" className="axis">{i + 1 + offset}</text>)}
-        {results.map((v, i) => v !== DNF && (
-          <circle key={i} cx={x(i)} cy={y(v)} r={r} className={'dot' + (v > hi ? ' capped' : '')} />
-        ))}
+        {results.map((v, i) => v === DNF
+          ? <text key={i} x={x(i)} y={T + 4} textAnchor="middle" className="dnf">×</text>
+          : <circle key={i} cx={x(i)} cy={y(v)} r={r} className="dot" />)}
         <path d={line(ao12)} className="ln s2" />
         <path d={line(ao5)} className="ln s1" />
         {hover != null && <line x1={x(hover)} x2={x(hover)} y1={T} y2={T + ih} className="cross" />}
@@ -88,7 +87,7 @@ export function TrendChart({ results, ao5, ao12, offset = 0 }:
           v != null && v !== DNF && <circle key={c} cx={x(hover)} cy={y(v)} r={4.5} className={'end ' + c} />)}
         <rect x={L} y={T} width={iw} height={ih} fill="transparent" onMouseMove={onMove} onMouseLeave={() => setHover(null)} />
       </svg>}
-      {hover != null && <Tip x={x(hover)} y={y(Math.min(results[hover], hi))} w={w}>
+      {hover != null && <Tip x={x(hover)} y={results[hover] === DNF ? T : y(results[hover])} w={w}>
         <b>Solve {hover + 1 + offset}</b>
         <div><i className="k dot" />single <span>{fmt(results[hover])}</span></div>
         <div><i className="k s1" />ao5 <span>{fmt(ao5[hover])}</span></div>
