@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { timer, useTimer, CROSS_COLORS } from '../timer/timer';
-import { STAGES, fmt, fmtSolve, stageTimes } from '../timer/stats';
+import { timer, useTimer } from '../timer/timer';
+import { fmt, fmtSolve, methodOf, stageTimes } from '../timer/stats';
+import { METHOD_STAGES, profileName } from '../timer/profile';
 import { Net } from '../components/Net';
 
 const TOUCH = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
@@ -106,11 +107,12 @@ export function TimerPage() {
           <div className="digits" ref={digits} aria-live="off">0.00</div>
           {t.settings.splits && (
             <div className="stages">
-              {STAGES.map((st, i) => {
+              {METHOD_STAGES[t.profile.method].map((st, i) => {
                 const running = t.phase === 'running';
                 const done = running && i < t.liveSplits.length;
                 const cur = running && i === t.liveSplits.length;
-                const lastTimes = !running && t.phase === 'idle' && last && !t.settings.bare ? stageTimes(last) : null;
+                const lastTimes = !running && t.phase === 'idle' && last && !t.settings.bare
+                  && methodOf(last) === t.profile.method ? stageTimes(last) : null;
                 const split = running
                   ? (t.liveSplits[i] != null ? t.liveSplits[i] - (t.liveSplits[i - 1] ?? 0) : null)
                   : lastTimes ? lastTimes[i] : null;
@@ -175,11 +177,9 @@ function Settings() {
           <option value={0}>Instant</option><option value={300}>0.3 s</option><option value={550}>0.55 s</option><option value={1000}>1 s</option>
         </select>
       </label>
-      <label className="field">Cross
-        <select value={s.cross} onChange={e => timer.setSetting('cross', e.target.value as typeof s.cross)}>
-          {CROSS_COLORS.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-      </label>
+      <a className="field plink" href="#/profile">
+        <span>Method</span><b>{profileName(t.profile)} &rarr;</b>
+      </a>
       <div className="row session-ops">
         <button onClick={() => { const n = prompt('Session name', t.sessionName()); if (n) timer.renameSession(n); }}>Rename session</button>
         <button onClick={() => { if (confirm(`Delete "${t.sessionName()}" and its ${t.solves.length} solves?`)) timer.deleteSession(); }}>Delete session</button>

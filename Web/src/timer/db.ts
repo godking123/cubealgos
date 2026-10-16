@@ -1,4 +1,5 @@
 import type { Snap } from '../cube';
+import type { Method } from './profile';
 
 export type Penalty = 'ok' | '+2' | 'dnf';
 
@@ -16,7 +17,8 @@ export interface Solve {
   penalty: Penalty;
   scramble: string;
   date: number;
-  splits?: number[];     // Cumulative ms at the End of Cross, F2L, OLL
+  splits?: number[];     // Cumulative ms at the End of the First Three Stages
+  method?: Method;       // Method the Splits Were Tapped For, CFOP When Missing
   analysis?: Analysis;
 }
 

@@ -4,12 +4,14 @@ import { timer, useTimer } from './timer/timer';
 import { SimPage } from './pages/SimPage';
 import { TimerPage } from './pages/TimerPage';
 import { StatsPage } from './pages/StatsPage';
+import { ProfilePage } from './pages/ProfilePage';
 import { SolveDetail } from './components/SolveDetail';
 
 const ROUTES = [
   { path: '', name: 'Timer', title: 'CubeAlgos — Rubik\'s Cube Timer' },
   { path: 'stats', name: 'Stats', title: 'Stats & Coaching — CubeAlgos' },
   { path: 'sim', name: 'Simulator', title: 'Cube Simulator — CubeAlgos' },
+  { path: 'profile', name: 'Profile', title: 'Profile — CubeAlgos', icon: true },
 ];
 
 type Theme = 'light' | 'dark';
@@ -64,18 +66,25 @@ export function App() {
       <header id="top">
         <a className="brand" href="#/">CUBEALGOS</a>
         <nav className="tabs">
-          {ROUTES.map(r => (
+          {ROUTES.filter(r => !r.icon).map(r => (
             <a key={r.path} href={'#/' + r.path} className={r === route ? 'on' : ''} aria-current={r === route ? 'page' : undefined}>{r.name}</a>
           ))}
         </nav>
         <span className="r">
+          <a href="#/profile" className={'me' + (route.path === 'profile' ? ' on' : '')} aria-label="Profile"
+             title="Profile" aria-current={route.path === 'profile' ? 'page' : undefined}>
+            <svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true">
+              <circle cx="8" cy="6" r="2.8" /><path d="M2.5 16c0-3 2.5-5 5.5-5s5.5 2 5.5 5" />
+            </svg>
+          </a>
           <span className="status">{s.online ? '' : s.statusText === 'Offline' ? 'Offline' : 'Loading...'}</span>
           <button className="theme" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Light mode' : 'Dark mode'}>
             {theme === 'dark' ? 'Light' : 'Dark'}
           </button>
         </span>
       </header>
-      {route.path === 'sim' ? <SimPage /> : route.path === 'stats' ? <StatsPage /> : <TimerPage />}
+      {route.path === 'sim' ? <SimPage /> : route.path === 'stats' ? <StatsPage />
+        : route.path === 'profile' ? <ProfilePage /> : <TimerPage />}
       {t.openSolve && <SolveDetail />}
     </div>
   );

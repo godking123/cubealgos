@@ -1,7 +1,11 @@
 import type { Solve } from './db';
+import { METHOD_STAGES, type Method } from './profile';
 
 export const DNF = Infinity;
-export const STAGES = ['Cross', 'F2L', 'OLL', 'PLL'] as const;
+export const STAGES = METHOD_STAGES.cfop;
+
+// Solves From Before the Profile Were Timed as CFOP
+export const methodOf = (s: Solve): Method => s.method ?? 'cfop';
 
 // A solve's result in ms, the +2 added, Infinity for a DNF
 export function result(s: Solve) {

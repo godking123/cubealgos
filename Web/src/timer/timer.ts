@@ -4,6 +4,7 @@ import type { Snap } from '../cube';
 import * as db from './db';
 import type { Analysis, Penalty, Session, Solve } from './db';
 import { fmt, fmtSolve, sessionStats, type SessionStats } from './stats';
+import { DEFAULT_PROFILE, type Profile } from './profile';
 
 export type Phase = 'idle' | 'inspect' | 'holding' | 'ready' | 'running';
 export const CROSS_COLORS = ['white', 'yellow', 'green', 'blue', 'red', 'orange', 'neutral'] as const;
@@ -16,15 +17,25 @@ export interface Settings {
   hide: boolean;         // No Running Clock
   focus: boolean;        // Panels Fade While Solving
   bare: boolean;         // Focus Mode: Clock and Scramble Only
-  cross: CrossColor;     // Colour the Analysis Measures Against
 }
-const DEFAULTS: Settings = { inspection: false, holdMs: 300, splits: false, hide: false, focus: true, bare: false, cross: 'white' };
+const DEFAULTS: Settings = { inspection: false, holdMs: 300, splits: false, hide: false, focus: true, bare: false };
 const INSPECTION = 15000, INSPECTION_DNF = 17000;
 
 const local = {
   get(k: string) { try { return localStorage.getItem(k); } catch { return null; } },
   set(k: string, v: string) { try { localStorage.setItem(k, v); } catch { /* Private Window */ } },
 };
+const parse = (k: string) => { try { return JSON.parse(local.get(k) || '{}'); } catch { return {}; } };
+
+// The cross colour used to live in the timer settings with white as its default, and
+// every saved settings object carries it. Only a colour other than white was surely
+// picked, so white is dropped and the solver is asked again
+function loadProfile(): Profile {
+  const saved = parse('profile');
+  if (Object.keys(saved).length) return { ...DEFAULT_PROFILE, ...saved };
+  const old = parse('timer.settings').cross;
+  return { ...DEFAULT_PROFILE, cross: old && old !== 'white' ? old : null };
+}
 
 // The timer, its sessions and the solve history, outside React like the simulator
 //
@@ -37,7 +48,8 @@ class Timer {
   getVersion = () => this.version;
   notify() { this.version++; this.listeners.forEach(f => f()); }
 
-  settings: Settings = { ...DEFAULTS, ...JSON.parse(local.get('timer.settings') || '{}') };
+  settings: Settings = { ...DEFAULTS, ...parse('timer.settings') };
+  profile: Profile = loadProfile();
   sessions: Session[] = [];
   sessionId = '';
   solves: Solve[] = [];
@@ -64,6 +76,13 @@ class Timer {
     local.set('timer.settings', JSON.stringify(this.settings));
     this.notify();
   }
+  setProfile(p: Partial<Profile>) {
+    this.profile = { ...this.profile, ...p };
+    local.set('profile', JSON.stringify(this.profile));
+    this.notify();
+  }
+  // An unset colour is measured as neutral: the best cross of the six
+  crossColor(): CrossColor { return this.profile.cross ?? 'neutral'; }
 
   // Sessions
   private booted = false;
@@ -133,24 +152,34 @@ class Timer {
   }
   open(id: string | null) { this.openSolve = id; this.notify(); }
 
+  // Every session's solves oldest first, for the stats page's all sessions view.
+  // Loaded on request and reloaded whenever the current session's history changes
+  everything: Solve[] | null = null;
+  async loadEverything() {
+    this.everything = (await db.allSolves()).sort((a, b) => a.date - b.date);
+    this.notify();
+  }
+
   // Each analysis is one engine call, kept with the solve so it runs once
   async analysis(id: string): Promise<Analysis | null> {
-    const s = this.solves.find(x => x.id === id);
+    const s = this.solves.find(x => x.id === id) ?? this.everything?.find(x => x.id === id);
     if (!s) return null;
     if (s.analysis) return s.analysis;
     const a = await api<Analysis & { error?: string }>('analyze', { scramble: s.scramble });
     if (a.error) return null;
     const r = { ...s, analysis: a };
+    if (this.everything) this.everything = this.everything.map(x => x.id === id ? r : x);
     // The session may have changed while the engine ran
     if (this.solves.some(x => x.id === id)) this.setSolves(this.solves.map(x => x.id === id ? r : x));
+    else this.notify();
     await db.put('solves', r);
     return a;
   }
   analyzing = { done: 0, total: 0 };
   private analyzeRun = 0;
-  async analyzeAll() {
+  async analyzeAll(solves: Solve[] = this.solves) {
     const run = ++this.analyzeRun;
-    const todo = this.solves.filter(s => !s.analysis).map(s => s.id);
+    const todo = solves.filter(s => !s.analysis).map(s => s.id);
     this.analyzing = { done: 0, total: todo.length };
     this.notify();
     for (const id of todo) {
@@ -277,7 +306,7 @@ class Timer {
     const s: Solve = {
       id: db.newId(), session: this.sessionId, time: Math.round(t), penalty: this.inspectPenalty,
       scramble: this.scramble, date: Date.now(),
-      ...(this.liveSplits.length === 3 ? { splits: this.liveSplits.map(Math.round) } : {}),
+      ...(this.liveSplits.length === 3 ? { splits: this.liveSplits.map(Math.round), method: this.profile.method } : {}),
     };
     this.liveSplits = [];
     this.setSolves([...this.solves, s]);

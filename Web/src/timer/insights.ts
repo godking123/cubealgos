@@ -1,6 +1,7 @@
 import type { Analysis, Solve } from './db';
 import type { CrossColor } from './timer';
-import { DNF, STAGES, fmt, mean, result, stageTimes, stdev } from './stats';
+import type { Method } from './profile';
+import { DNF, STAGES, fmt, mean, methodOf, result, stageTimes, stdev } from './stats';
 
 // Rough shares of a CFOP solve per stage, a common rule of thumb rather than a
 // standard; the coaching compares against it only to rank where time goes
@@ -25,9 +26,11 @@ export interface Insight { tone: 'focus' | 'good' | 'info'; title: string; detai
 
 export interface StageSummary { avg: number[]; share: number[]; sd: (number | null)[]; best: number[]; n: number }
 
-// Stage averages over the solves that carry splits, DNFs left out
-export function stageSummary(solves: Solve[]): StageSummary | null {
-  const rows = solves.filter(s => s.penalty !== 'dnf').map(stageTimes).filter((x): x is number[] => !!x);
+// Stage averages over one method's solves that carry splits, DNFs left out. A Roux
+// split and a CFOP split mark different moments, so they never share an average
+export function stageSummary(solves: Solve[], method: Method = 'cfop'): StageSummary | null {
+  const rows = solves.filter(s => s.penalty !== 'dnf' && methodOf(s) === method)
+    .map(stageTimes).filter((x): x is number[] => !!x);
   if (!rows.length) return null;
   const col = (i: number) => rows.map(r => r[i]);
   const avg = STAGES.map((_, i) => mean(col(i))!);

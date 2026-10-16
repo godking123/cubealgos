@@ -33,9 +33,11 @@ function Tip({ x, y, w, children }: { x: number; y: number; w: number; children:
   return <div className="tip" style={{ left, top: Math.max(0, y - 10) }}>{children}</div>;
 }
 
-// Times Over the Session: Singles as Dots, ao5 and ao12 as Lines
-export function TrendChart({ results, ao5, ao12, offset = 0 }:
-  { results: number[]; ao5: (number | null)[]; ao12: (number | null)[]; offset?: number }) {
+export interface TrendLines { single: boolean; ao5: boolean; ao12: boolean }
+
+// Times Over the Session: Singles as Dots Joined by a Thin Line, ao5 and ao12 as Lines
+export function TrendChart({ results, ao5, ao12, offset = 0, show = { single: true, ao5: true, ao12: true } }:
+  { results: number[]; ao5: (number | null)[]; ao12: (number | null)[]; offset?: number; show?: TrendLines }) {
   const [ref, w] = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
   const H = 240, L = 46, R = 14, T = 12, B = 26;
@@ -77,21 +79,22 @@ export function TrendChart({ results, ao5, ao12, offset = 0 }:
           <text x={L - 8} y={y(v) + 4} textAnchor="end" className="axis">{secs(v)}</text>
         </g>)}
         {xTicks.map(i => <text key={i} x={x(i)} y={H - 6} textAnchor="middle" className="axis">{i + 1 + offset}</text>)}
-        {results.map((v, i) => v === DNF
+        {show.single && <path d={line(results)} className="ln single" />}
+        {show.single && results.map((v, i) => v === DNF
           ? <text key={i} x={x(i)} y={T + 4} textAnchor="middle" className="dnf">×</text>
           : <circle key={i} cx={x(i)} cy={y(v)} r={r} className="dot" />)}
-        <path d={line(ao12)} className="ln s2" />
-        <path d={line(ao5)} className="ln s1" />
+        {show.ao12 && <path d={line(ao12)} className="ln s2" />}
+        {show.ao5 && <path d={line(ao5)} className="ln s1" />}
         {hover != null && <line x1={x(hover)} x2={x(hover)} y1={T} y2={T + ih} className="cross" />}
-        {hover != null && ([[ao5[hover], 's1'], [ao12[hover], 's2']] as const).map(([v, c]) =>
-          v != null && v !== DNF && <circle key={c} cx={x(hover)} cy={y(v)} r={4.5} className={'end ' + c} />)}
+        {hover != null && ([[show.ao5 && ao5[hover], 's1'], [show.ao12 && ao12[hover], 's2']] as const).map(([v, c]) =>
+          v != null && v !== false && v !== DNF && <circle key={c} cx={x(hover)} cy={y(v)} r={4.5} className={'end ' + c} />)}
         <rect x={L} y={T} width={iw} height={ih} fill="transparent" onMouseMove={onMove} onMouseLeave={() => setHover(null)} />
       </svg>}
       {hover != null && <Tip x={x(hover)} y={results[hover] === DNF ? T : y(results[hover])} w={w}>
         <b>Solve {hover + 1 + offset}</b>
-        <div><i className="k dot" />single <span>{fmt(results[hover])}</span></div>
-        <div><i className="k s1" />ao5 <span>{fmt(ao5[hover])}</span></div>
-        <div><i className="k s2" />ao12 <span>{fmt(ao12[hover])}</span></div>
+        {show.single && <div><i className="k dot" />single <span>{fmt(results[hover])}</span></div>}
+        {show.ao5 && <div><i className="k s1" />ao5 <span>{fmt(ao5[hover])}</span></div>}
+        {show.ao12 && <div><i className="k s2" />ao12 <span>{fmt(ao12[hover])}</span></div>}
       </Tip>}
     </div>
   );
@@ -137,8 +140,8 @@ export function Histogram({ results }: { results: number[] }) {
   );
 }
 
-// Cross, F2L, OLL, PLL as One Stacked Bar per Row, Rows on a Shared Scale
-export function SplitBars({ rows }: { rows: { label: string; times: number[] }[] }) {
+// A Method's Four Stages as One Stacked Bar per Row, Rows on a Shared Scale
+export function SplitBars({ rows, stages = STAGES }: { rows: { label: string; times: number[] }[]; stages?: readonly string[] }) {
   const [tip, setTip] = useState<{ r: number; i: number } | null>(null);
   const max = Math.max(...rows.map(r => r.times.reduce((a, b) => a + b, 0)));
   return (
@@ -154,7 +157,7 @@ export function SplitBars({ rows }: { rows: { label: string; times: number[] }[]
                   <div key={i} className={'seg s' + (i + 1)} style={{ flexGrow: t }}
                        onMouseEnter={() => setTip({ r, i })} onMouseLeave={() => setTip(null)}>
                     {tip && tip.r === r && tip.i === i &&
-                      <div className="tip seg-tip"><b>{STAGES[i]}</b><div>{fmt(t)} · {Math.round((t / total) * 100)}%</div></div>}
+                      <div className="tip seg-tip"><b>{stages[i]}</b><div>{fmt(t)} · {Math.round((t / total) * 100)}%</div></div>}
                   </div>
                 ))}
               </div>
@@ -163,7 +166,7 @@ export function SplitBars({ rows }: { rows: { label: string; times: number[] }[]
         );
       })}
       <div className="legend">
-        {STAGES.map((s, i) => (
+        {stages.map((s, i) => (
           <span key={s}><i className={'k s' + (i + 1)} />{s}
             {rows.length === 1 && <em>{fmt(rows[0].times[i])}</em>}</span>
         ))}

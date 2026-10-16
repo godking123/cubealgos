@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { timer, useTimer } from '../timer/timer';
 import type { Analysis, Penalty } from '../timer/db';
-import { STAGES, fmt, fmtSolve, stageTimes } from '../timer/stats';
+import { fmt, fmtSolve, methodOf, stageTimes } from '../timer/stats';
+import { HAS_CROSS, METHOD_STAGES } from '../timer/profile';
 import { crossLook, stageSummary } from '../timer/insights';
 import { CrossBars, SplitBars } from './Charts';
 import { Net } from './Net';
@@ -33,8 +34,10 @@ export function SolveDetail() {
   if (!s) return null;
 
   const times = stageTimes(s);
-  const avg = stageSummary(t.solves);
-  const color = t.settings.cross;
+  const method = methodOf(s);
+  const stages = METHOD_STAGES[method];
+  const avg = stageSummary(t.solves, method);
+  const color = t.crossColor();
   const look = a ? crossLook(a, color) : null;
   const lengths = a ? Object.fromEntries(a.crosses.map(c => [c.color, c.moves.length])) : null;
   const pen = (p: Penalty) => timer.setPenalty(s.id, p);
@@ -64,19 +67,19 @@ export function SolveDetail() {
             {a && <div style={{ marginTop: 12 }}><Net s={a.state} size={13} /></div>}
           </section>
 
-          <section className="pane">
+          {HAS_CROSS[t.profile.method] && <section className="pane">
             <div className="lbl">Optimal cross</div>
             {lengths && look ? <>
-              <CrossBars lengths={lengths} mark={color === 'neutral' ? look.bestColor : color} />
+              <CrossBars lengths={lengths} mark={!t.profile.cross ? undefined : color === 'neutral' ? look.bestColor : color} />
             </> : <div className="empty">{failed ? 'Could not analyse this scramble' : 'Analysing...'}</div>}
-          </section>
+          </section>}
 
           {times && <section className="pane wide">
             <div className="lbl">Stage splits</div>
-            <SplitBars rows={[{ label: 'This solve', times }, ...(avg && avg.n > 1 ? [{ label: `Average of ${avg.n}`, times: avg.avg }] : [])]} />
+            <SplitBars stages={stages} rows={[{ label: 'This solve', times }, ...(avg && avg.n > 1 ? [{ label: `Average of ${avg.n}`, times: avg.avg }] : [])]} />
             <table className="data">
               <thead><tr><th>Stage</th><th>This solve</th><th>Session avg</th><th>Diff</th></tr></thead>
-              <tbody>{STAGES.map((st, i) => {
+              <tbody>{stages.map((st, i) => {
                 const d = avg ? times[i] - avg.avg[i] : null;
                 return <tr key={st}><td>{st}</td><td>{fmt(times[i])}</td><td>{avg ? fmt(avg.avg[i]) : '-'}</td>
                   <td className={d == null ? '' : d > 0 ? 'worse' : 'better'}>{d == null ? '-' : (d > 0 ? '+' : '-') + fmt(Math.abs(d))}</td></tr>;
